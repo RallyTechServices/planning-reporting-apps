@@ -1,0 +1,6 @@
+{
+    "name": "Roadmap Summary Report",
+    "className": "CustomApp",
+    "server": "https://demo-west.rallydev.com",
+    "sdk": "2.0rc3"
+}
