@@ -1,7 +1,6 @@
 Ext.define('Rally.technicalservices.board.RoadmapBoard',{
     extend: 'Ext.container.Container',
     alias: 'widget.tsroadmapboard',
-    margin: 15,
     config: {
         /*
          * @cfg {Ext.data.model} records The items to be placed on the timeboxes
@@ -15,7 +14,11 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
         /*
          * @cfg {Date} start_date  The date from which to start displaying quarters
          */
-        start_date: new Date()
+        start_date: new Date(),
+        /*
+         * @cfg {Number} margin
+         */
+        margin: 0
     },
     constructor: function(config){
         this.callParent(arguments);
@@ -23,6 +26,11 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
     },
     initComponent: function() {
         this.callParent(arguments);
+
+        this.height = this.height || 800;
+        this.width = this.width || 1000;
+        this.margin = this.margin || 2;
+        
         var timeboxes = this._createTimeboxes();
         
         this.canvas = Ext.create('Ext.draw.Component',{
@@ -45,12 +53,13 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
         var timeboxes = [];
         var records_to_place = this.records;
         var year_start_date = this._getStartOfQuarter( this.start_date );
+        console.log(this.date_field,this.width, this.height, this.margin);
         
         for ( var i=0; i<3; i++ ) {
-            var width = 395;
-            var height = 600;
-            var x = 10 + ( i * width );
-            var y = 10;
+            var width = (this.width - ( 2* this.margin )) / 3  ;
+            var height = this.height - ( 2 * this.margin );
+            var x =  ( i * width) + this.margin;
+            var y = 0 + this.margin;
             
             var start_date = Rally.util.DateTime.add(year_start_date,'month', 3*i);
             
@@ -106,7 +115,7 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
         var header_text = Ext.create( 'Ext.draw.Sprite', {
             type: 'text',
             text: text,
-            x: x + width/2 - font_size/8,
+            x: x + width/2 - font_size,
             y: y + height/2, 
             fill: '#fff',
             font: this._getFont(font_size)
@@ -143,7 +152,7 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
             sub_headers.push(Ext.create( 'Ext.draw.Sprite', {
                 type: 'text',
                 text: text,
-                x: x + width/2 - font_size/8,
+                x: x + width/2 - font_size,
                 y: y + height/2, 
                 fill: '#fff',
                 font: this._getFont(font_size)

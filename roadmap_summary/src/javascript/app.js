@@ -8,18 +8,17 @@ Ext.define('CustomApp', {
         {xtype:'tsinfolink'}
     ],
     launch: function() {
-
-        
         this._getRecords("PortfolioItem/Feature", ['FormattedID','Name','PlannedEndDate']).then({
             scope: this,
             success: function(records){
                 this.logger.log(records);
                 Ext.create('Rally.technicalservices.board.RoadmapBoard',{
-                    width: this.width,
-                    height: this.height,
+                    width: this.getWidth(),
+                    height: this.getHeight(),
                     target: this.down('#display_box'),
-                    records: records
-                });
+                    records: records,
+                    margin: 15
+                },this);
             },
             failure: function(error_message){
                 alert(error_message);
