@@ -1,6 +1,7 @@
 Ext.define('Rally.technicalservices.board.RoadmapBoard',{
     extend: 'Ext.container.Container',
     alias: 'widget.tsroadmapboard',
+    scheduled_items: [], /* items that will show up in the quarter columns (e.g., releases) */
     config: {
         /*
          * @cfg {Ext.data.model} records The items to be placed on the timeboxes
@@ -172,7 +173,7 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
         
         for ( var i=0; i<3; i++ ) {
             var x = parent_x + ( i * width );
-            start_marks_y = start_marks_y + i*27; // shift down to keep from overlapping
+            //start_marks_y = start_marks_y + i*27; // shift down to keep from overlapping
             
             var month_start = Rally.util.DateTime.add(start_date, "month", i);
             var month_end = Rally.util.DateTime.add(month_start,"month",1);
@@ -213,27 +214,49 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
         var marks = [];
         Ext.Array.each(records_to_place,function(record){
             var text = record.get('Name');
-            y = y + font_size + 7;
             
-            marks.push(Ext.create('Ext.draw.Sprite',{
+            var x_text_start = x + 4 + font_size/8;
+            var x_text_end = x + 4 + this._getTextWidth( text, font_size );
+            
+            console.log(x_text_start, y, text);
+            y = this._getSafeY( x, x_text_end, y + font_size + 7, font_size );
+            console.log(x_text_start, y, text);
+            var text_sprite = Ext.create( 'Ext.draw.Sprite', {
+                type: 'text',
+                text: text,
+                x: x_text_start,
+                y: y, 
+                fill: '#000',
+                font: this._getFont(font_size)
+            } );
+            
+            var marker_sprite = Ext.create('Ext.draw.Sprite',{
                 type: 'circle',
                 radius: font_size / 4,
                 x: x,
                 y: y-2,
                 fill: 'green'
-            }));
+            });
             
-            marks.push(Ext.create( 'Ext.draw.Sprite', {
-                type: 'text',
-                text: text,
-                x: x + 4 + font_size/8,
-                y: y, 
-                fill: '#000',
-                font: this._getFont(font_size)
-            } ));
+            marks.push(marker_sprite);
+            
+            marks.push(text_sprite);
+            this.scheduled_items.push( {x_text_start: x_text_start, x_text_end: x_text_end, y: y} );
+            
+//            marks.push(Ext.create('Ext.draw.Sprite',{
+//                type: 'circle',
+//                radius: font_size / 4,
+//                x: x_text_end,
+//                y: y-2,
+//                fill: 'blue'
+//            }));
+            
         },this);
         
         return marks;
+    },
+    _getTextWidth: function( text, font_size ){
+        return text.length * font_size/2;
     },
     _getFont: function(font_size) {
         var font_string = font_size + "px Arial";
@@ -253,5 +276,29 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
         var quarter_start = new Date(quarter_start_year, quarter_start_month, 1);
 
         return quarter_start;
+    },
+    /*
+     * check for overlapping text markers
+     */
+    _getSafeY: function( x_text_start,x_text_end, y, font_size ){
+        //y + font_size + 7
+        var safe = true;
+        Ext.Array.each(this.scheduled_items,function(item){
+            var test_x_text_start = item.x_text_start;
+            var test_x_text_end = item.x_text_end;
+            var test_y = item.y;
+            
+            if ( y < test_y + 5 && y > test_y - 5 ) {
+                if ( x_text_start >= test_x_text_start && x_text_start <= test_x_text_end  ) {
+                    safe = false;
+                }
+            }
+        });
+        
+        var new_y = y;
+        if ( !safe ) {
+            new_y = this._getSafeY(x_text_start,x_text_end, y+font_size+7, font_size);
+        }
+        return new_y;
     }
 });
