@@ -8,7 +8,7 @@ Ext.define('CustomApp', {
         {xtype:'tsinfolink'}
     ],
     launch: function() {
-        this._getRecords("PortfolioItem/Feature", ['FormattedID','Name','PlannedEndDate']).then({
+        this._getRecords("Release", ['Name','ReleaseDate']).then({
             scope: this,
             success: function(records){
                 this.logger.log(records);
@@ -17,6 +17,7 @@ Ext.define('CustomApp', {
                     height: this.getHeight(),
                     target: this.down('#display_box'),
                     records: records,
+                    date_field: 'ReleaseDate',
                     margin: 15
                 },this);
             },
@@ -28,10 +29,17 @@ Ext.define('CustomApp', {
     _getRecords: function(model_name, model_fields){
         var deferred = Ext.create('Deft.Deferred');
         
+        var context = this.getContext();
+        if ( model_name == "Release" ) {
+            context = {
+                projectScopeDown: false
+            }
+        }
         var defectStore = Ext.create('Rally.data.wsapi.Store', {
             model: model_name,
             fetch: model_fields,
             autoLoad: true,
+            context: context,
             listeners: {
                 load: function(store, records, successful) {
                     if (successful){
