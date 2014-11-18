@@ -27,6 +27,17 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
     },
     initComponent: function() {
         this.callParent(arguments);
+        
+        this.addEvents(
+            /**
+             * @event
+             * Fired when a record marker is clicked on 
+             * 
+             * @param {Sprite} the text marker that was clicked
+             * @param {Ext.data.Model} the record that the marker represents
+             */
+            'clickMarker'
+        );
 
         this.height = this.height || 800;
         this.width = this.width || 1000;
@@ -54,7 +65,6 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
         var timeboxes = [];
         var records_to_place = this.records;
         var year_start_date = this._getStartOfQuarter( this.start_date );
-        console.log(this.date_field,this.width, this.height, this.margin);
         
         for ( var i=0; i<3; i++ ) {
             var width = (this.width - ( 2* this.margin )) / 3  ;
@@ -207,6 +217,8 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
         return [ sub_columns, record_marks];
     },
     _getRecordMarks: function(start_x,start_y,container_width, container_height, records_to_place){
+        var me = this;
+        
         var x = start_x + ( 0.25 * container_width);
         var y = start_y;
         
@@ -218,16 +230,21 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
             var x_text_start = x + 4 + font_size/8;
             var x_text_end = x + 4 + this._getTextWidth( text, font_size );
             
-            console.log(x_text_start, y, text);
             y = this._getSafeY( x, x_text_end, y + font_size + 7, font_size );
-            console.log(x_text_start, y, text);
+
             var text_sprite = Ext.create( 'Ext.draw.Sprite', {
                 type: 'text',
                 text: text,
                 x: x_text_start,
                 y: y, 
                 fill: '#000',
-                font: this._getFont(font_size)
+                font: this._getFont(font_size),
+                listeners: {
+                    click: function(){
+                        console.log('click',this,record);
+                        me.fireEvent('clickMarker',this,record);
+                    }
+                }
             } );
             
             var marker_sprite = Ext.create('Ext.draw.Sprite',{

@@ -3,11 +3,11 @@
 <head>
     <title>Roadmap Summary Report</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Nov 17 2014 18:54:32 GMT-0800 (PST) -->
+    <!--  Build Date: Mon Nov 17 2014 19:23:13 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Nov 17 2014 18:54:32 GMT-0800 (PST)";
-        var CHECKSUM = 5685211234;
+        var APP_BUILD_DATE = "Mon Nov 17 2014 19:23:13 GMT-0800 (PST)";
+        var CHECKSUM = 6361320496;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -167,6 +167,17 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
     },
     initComponent: function() {
         this.callParent(arguments);
+        
+        this.addEvents(
+            /**
+             * @event
+             * Fired when a record marker is clicked on 
+             * 
+             * @param {Sprite} the text marker that was clicked
+             * @param {Ext.data.Model} the record that the marker represents
+             */
+            'clickMarker'
+        );
 
         this.height = this.height || 800;
         this.width = this.width || 1000;
@@ -194,7 +205,6 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
         var timeboxes = [];
         var records_to_place = this.records;
         var year_start_date = this._getStartOfQuarter( this.start_date );
-        console.log(this.date_field,this.width, this.height, this.margin);
         
         for ( var i=0; i<3; i++ ) {
             var width = (this.width - ( 2* this.margin )) / 3  ;
@@ -347,6 +357,8 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
         return [ sub_columns, record_marks];
     },
     _getRecordMarks: function(start_x,start_y,container_width, container_height, records_to_place){
+        var me = this;
+        
         var x = start_x + ( 0.25 * container_width);
         var y = start_y;
         
@@ -358,16 +370,21 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
             var x_text_start = x + 4 + font_size/8;
             var x_text_end = x + 4 + this._getTextWidth( text, font_size );
             
-            console.log(x_text_start, y, text);
             y = this._getSafeY( x, x_text_end, y + font_size + 7, font_size );
-            console.log(x_text_start, y, text);
+
             var text_sprite = Ext.create( 'Ext.draw.Sprite', {
                 type: 'text',
                 text: text,
                 x: x_text_start,
                 y: y, 
                 fill: '#000',
-                font: this._getFont(font_size)
+                font: this._getFont(font_size),
+                listeners: {
+                    click: function(){
+                        console.log('click',this,record);
+                        me.fireEvent('clickMarker',this,record);
+                    }
+                }
             } );
             
             var marker_sprite = Ext.create('Ext.draw.Sprite',{
@@ -462,6 +479,10 @@ Ext.define('CustomApp', {
                     target: this.down('#display_box'),
                     records: records,
                     date_field: 'ReleaseDate',
+                    listeners: {
+                        scope: this,
+                        clickMarker: this._showReleaseInfo
+                    },
                     margin: 15
                 },this);
             },
@@ -469,6 +490,26 @@ Ext.define('CustomApp', {
                 alert(error_message);
             }
         });
+    },
+    _showReleaseInfo: function(marker,release) {
+        this.logger.log("clicked with ", marker, release);
+        
+        var dialog = Ext.create('Rally.ui.dialog.Dialog',{
+            autoShow: true,
+            draggable: true,
+            closable: true,
+            width: 300,
+            title: release.get('Name')
+         });
+         
+         dialog.add({
+            xtype: 'rallygrid',
+            storeConfig: {
+                model:'PortfolioItem/Feature',
+                filters: [{property:'Release.Name', value:release.get('Name')}]
+            },
+            columnCfgs: [{dataIndex:'FormattedID',text:'id'},{dataIndex:'Name',text:'Name'}]
+         });
     },
     _getRecords: function(model_name, model_fields){
         var deferred = Ext.create('Deft.Deferred');

@@ -18,6 +18,10 @@ Ext.define('CustomApp', {
                     target: this.down('#display_box'),
                     records: records,
                     date_field: 'ReleaseDate',
+                    listeners: {
+                        scope: this,
+                        clickMarker: this._showReleaseInfo
+                    },
                     margin: 15
                 },this);
             },
@@ -25,6 +29,26 @@ Ext.define('CustomApp', {
                 alert(error_message);
             }
         });
+    },
+    _showReleaseInfo: function(marker,release) {
+        this.logger.log("clicked with ", marker, release);
+        
+        var dialog = Ext.create('Rally.ui.dialog.Dialog',{
+            autoShow: true,
+            draggable: true,
+            closable: true,
+            width: 300,
+            title: release.get('Name')
+         });
+         
+         dialog.add({
+            xtype: 'rallygrid',
+            storeConfig: {
+                model:'PortfolioItem/Feature',
+                filters: [{property:'Release.Name', value:release.get('Name')}]
+            },
+            columnCfgs: [{dataIndex:'FormattedID',text:'id'},{dataIndex:'Name',text:'Name'}]
+         });
     },
     _getRecords: function(model_name, model_fields){
         var deferred = Ext.create('Deft.Deferred');
