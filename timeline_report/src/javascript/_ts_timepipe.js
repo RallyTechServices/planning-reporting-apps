@@ -40,7 +40,13 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
          * we're playing with canvases
          * 
          */
-        renderIn: null
+        renderIn: null,
+        /*
+         * @cfg {Boolean} top_on_color
+         * 
+         * If the record has a color for its DisplayColor, then put on top
+         */
+        top_on_color: false
     },
     constructor: function(config){
         this.callParent(arguments);
@@ -101,7 +107,6 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         
         return Ext.Array.flatten( [ pipe, timeboxes ] );
     },
-    
     
     _createTimeboxes: function(parent_width,parent_height, parent_x, parent_y, records) {
         var timeboxes = [];
@@ -175,12 +180,19 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             var percentage_of_month = this._getPercentageOfMonthBurned(month_date, record.get(this.date_field));
             var x = parent_x + ( percentage_of_month * parent_width );
             var y = parent_y + parent_height;
+            var potential_text_y = y+40;
+
+            var is_above = ( this.top_on_color && record.get('DisplayColor') );
+            if  (is_above) {
+                y = parent_y;
+                potential_text_y = y-45;
+            }
             
             var text = record.get('Name');
             var x_text_start = this._getCenteredTextX(text,font_size,x);
             var x_text_end = x_text_start + this._getTextWidth( text, font_size );
             
-            var y_text_start = this._getSafeY( x_text_start, x_text_end, y+45, font_size );
+            var y_text_start = this._getSafeY( x_text_start, x_text_end, potential_text_y, font_size, is_above);
 
             var text_sprite = Ext.create( 'Ext.draw.Sprite', {
                 type: 'text',
@@ -195,12 +207,19 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
 
             markers.push(text_sprite);
             
+            var line_x = x;
+            var line_y = y;
+            var line_height = y_text_start - y - font_size;
+            if  (is_above) {
+                line_y = y_text_start + 5;
+                line_height = y - y_text_start;
+            }
             markers.push(Ext.create('Ext.draw.Sprite', {
                     type:'rect',
                     width: 2,
-                    height: y_text_start - y - font_size,
-                    x: x,
-                    y: y,
+                    height: line_height,
+                    x: line_x,
+                    y: line_y,
                     opacity: 1,
                     'stroke-width': 0,
                     fill: '#B2E0FF'
@@ -256,7 +275,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
     /*
      * check for overlapping text markers
      */
-    _getSafeY: function( x_text_start,x_text_end, y, font_size ){
+    _getSafeY: function( x_text_start,x_text_end, y, font_size, is_above ){
         var safe = true;
        
         Ext.Array.each(this.scheduled_items,function(item){
@@ -275,7 +294,11 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         
         var new_y = y;
         if ( !safe ) {
-            new_y = this._getSafeY(x_text_start,x_text_end, y+font_size+7, font_size);
+            var possible_y = y+font_size+7;
+            if (is_above) {
+                possible_y = y - font_size - 7;
+            }
+            new_y = this._getSafeY(x_text_start,x_text_end, possible_y, font_size);
         }
         return new_y;
     },
