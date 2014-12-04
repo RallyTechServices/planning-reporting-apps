@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Timeline</title>
+    <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
+    <!--  Build Date: Wed Dec 03 2014 16:14:30 GMT-0800 (PST) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Wed Dec 03 2014 16:14:30 GMT-0800 (PST)";
+        var CHECKSUM = 6805912184;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Ext.Component',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+     title: "Build Information",
+    
+    renderTpl: "<div id='{id}-infolinkWrap' class='tsinfolink'>i</div>",
+
+    initComponent: function() {
+        this.callParent(arguments);
+       
+    },
+    
+    onRender: function() {
+        this.callParent(arguments);
+        this.mon(this.el,'click',this.onClick,this);
+    },
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+        
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+    
+        return chk;
+    },
+    _checkChecksum: function(container) {
+        var me = this;
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    if ( CHECKSUM !== me._generateChecksum(text) ) {
+                        console.log("Checksums don't match!");
+                        if ( me.dialog ) {
+                            me.dialog.add({xtype:'container',html:'Checksums do not match'});
+                        }
+                    }
+                }
+            }
+        });
+    },
+    onClick: function(e) {
+        var me = this;
+        this._checkChecksum(this);
+        
+        var dialog_items = [];
+        
+        if ( this.informationHtml ) {
+            dialog_items.push({
+                xtype:'container',
+                html: this.informationHtml
+            });
+        }
+                
+        dialog_items.push({
+            xtype:'container',
+            html:"This app was created by the Rally Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            dialog_items.push({
+                xtype:'container',
+                html:'Build date/time: ' + APP_BUILD_DATE
+            });
+        }
+        
+        if (this.dialog){this.dialog.destroy();}
+        this.dialog = Ext.create('Rally.ui.dialog.Dialog',{
+            defaults: { padding: 5, margin: 5 },
+            closable: true,
+            draggable: true,
+            title: me.title,
+            items: dialog_items
+        });
+        this.dialog.show();
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('Rally.technicalservices.board.TimePipe',{
+    extend: 'Ext.container.Container',
+    alias: 'widget.tstimepipe',
+    scheduled_items: [], /* items that will show up in the quarter columns (e.g., releases) */
+    config: {
+        /*
+         * @cfg {Ext.data.model} records The items to be placed on the timeboxes
+         */
+        records: [],
+        /*
+         * @cfg {String} date_field The field that holds the date used to determine placement
+         * 
+         */
+        date_field: 'TargetDate',
+        /*
+         * @cfg {Date} start_date  The date from which to start displaying timeboxes
+         */
+        start_date: new Date(),
+        /*
+         * @cfg {Date} end_date  The date less than which display (one day more than what we want
+         * to display for quarters and months (e.g., 1 jan to stop on 31 dec)
+         */
+        end_date: Rally.util.DateTime.add( new Date(), 'month', 1),
+        /*
+         * @cfg {String} granularity  What size segments to make 
+         * 'day','month','quarter','year'
+         * 
+         * (only 'month' works right now)
+         */
+        granularity: 'month',
+        
+        /*
+         * @cfg {Number} margin
+         */
+        margin: 0,
+        /*
+         * @cfg {Class} renderIn
+         * 
+         * Must use renderIn instead of .add because
+         * we're playing with canvases
+         * 
+         */
+        renderIn: null
+    },
+    constructor: function(config){
+        this.callParent(arguments);
+        this.initConfig(config);
+    },
+    initComponent: function() {
+        this.callParent(arguments);
+        
+        if ( this.renderIn === null ) {
+            throw "Cannot create a TimePipe without assigning renderIn";
+        }
+        if ( this.granularity !== 'month' ) {
+            throw "Cannot create TimePipe with any granularity other than 'month' right now";
+        }
+
+        this.height = this.height || 800;
+        this.width = this.width || 1000;
+        this.margin = this.margin || 2;
+        
+        var timepipe = this._createPipe();
+        
+        this.canvas = Ext.create('Ext.draw.Component',{
+            viewBox: false,
+            width: this.width,
+            height: this.height,
+            items: [timepipe]
+        });
+        
+        this.container = Ext.create('Ext.container.Container', {
+            width: this.width,
+            height: this.height,
+            items:[this.canvas]
+        });
+        
+        this.renderIn.add(this.container);
+    },
+    _createPipe: function() {
+        var margin = this.margin;
+        
+        var width = this.width - ( 2 * margin );
+        var height = 50 ;
+        
+        var x = margin;
+        var y = ( ( this.height - ( 2 * margin ) ) / 2 ) - height / 2;
+        
+        var timeboxes = this._createTimeboxes(width, height, x, y, this.records);
+        
+        var pipe = Ext.create('Ext.draw.Sprite', {
+            type:'rect',
+            width: width,
+            height: height,
+            x: x,
+            y: y,
+            opacity: 1,
+            'stroke-width': 2,
+            fill: '#0099FF'
+        });
+        
+        return Ext.Array.flatten( [ pipe, timeboxes ] );
+    },
+    
+    
+    _createTimeboxes: function(parent_width,parent_height, parent_x, parent_y, records) {
+        var timeboxes = [];
+        var timebox_margin = 4;
+        
+        var start = this.start_date;
+        var end = this.end_date;
+        
+        var granularity = this.granularity;
+        
+        var number_of_boxes = Rally.util.DateTime.getDifference(end,start,granularity);
+        
+        var check_date = start;
+        
+        var width = ( parent_width / number_of_boxes ) - 2*timebox_margin;
+        var height = ( parent_height - 2*timebox_margin ) ;
+        
+        var record_markers = [];
+        
+        for ( var i=0; i<number_of_boxes; i++ ) {
+            var x = parent_x + (i*width) + i*2*timebox_margin + timebox_margin;
+            var y = parent_y + timebox_margin;
+            
+            timeboxes.push(
+                Ext.create('Ext.draw.Sprite', {
+                    type:'rect',
+                    width: width,
+                    height: height,
+                    x: x,
+                    y: y,
+                    opacity: 1,
+                    'stroke-width': 0,
+                    fill: '#B2E0FF'
+                })
+            );
+            
+            timeboxes.push( this._getMonthNameMarker(check_date,width,height,x,y));
+            
+            var next_date = Rally.util.DateTime.add(check_date,granularity,1);
+            var records_in_timebox = [];
+            Ext.Array.each(records,function(record){
+                var record_date = record.get(this.date_field);
+                
+                if ( record_date > check_date && record_date < Rally.util.DateTime.add(next_date,'minute',-30) ) {
+                    records_in_timebox.push(record);
+                }
+            },this);
+            record_markers.push( this._getRecordMarkers(check_date, width, height, x, y, records_in_timebox));
+            
+            check_date = next_date;
+        }
+        
+        // put the lines on before text to prevent overlap
+        Ext.Array.each(Ext.Array.flatten(record_markers), function(marker){
+            if ( marker.type == 'rect') {
+                timeboxes.push(marker);
+            }
+        });
+        Ext.Array.each(Ext.Array.flatten(record_markers), function(marker){
+            if ( marker.type == 'text') {
+                timeboxes.push(marker);
+            }
+        });
+        return Ext.Array.flatten(timeboxes);
+    },
+    _getRecordMarkers: function(month_date, parent_width, parent_height, parent_x, parent_y, records) {
+        var markers = [];
+        var font_size = 14;
+
+        Ext.Array.each(records,function(record){
+            var percentage_of_month = this._getPercentageOfMonthBurned(month_date, record.get(this.date_field));
+            var x = parent_x + ( percentage_of_month * parent_width );
+            var y = parent_y + parent_height;
+            
+            var text = record.get('Name');
+            var x_text_start = this._getCenteredTextX(text,font_size,x);
+            var x_text_end = x_text_start + this._getTextWidth( text, font_size );
+            
+            var y_text_start = this._getSafeY( x_text_start, x_text_end, y+45, font_size );
+
+            var text_sprite = Ext.create( 'Ext.draw.Sprite', {
+                type: 'text',
+                text: text,
+                x: x_text_start,
+                y: y_text_start, 
+                fill: '#000',
+                font: this._getFont(font_size)
+            } );
+            
+            this.scheduled_items.push( {text: text, x_text_start: x_text_start, x_text_end: x_text_end, y: y_text_start} );
+
+            markers.push(text_sprite);
+            
+            markers.push(Ext.create('Ext.draw.Sprite', {
+                    type:'rect',
+                    width: 2,
+                    height: y_text_start - y - font_size,
+                    x: x,
+                    y: y,
+                    opacity: 1,
+                    'stroke-width': 0,
+                    fill: '#B2E0FF'
+                })
+            );
+        },this);
+        return markers;
+    },
+    _getCenteredTextX: function(text,font_size,x){
+        var width = this._getTextWidth( text, font_size );
+        var start = x - width/2;
+        if ( start < this.margin ) { start = this.margin; }
+        return start;
+    },
+    _getMonthNameMarker:function(month_date, parent_width, parent_height, parent_x, parent_y) {
+        var font_size = 24;
+        var text = Ext.util.Format.date(month_date,'M');
+        
+        var x = ( parent_x + parent_width/2 ) - font_size;
+        var y = parent_y + parent_height/2;
+        
+        return Ext.create( 'Ext.draw.Sprite', {
+            type: 'text',
+            text: text,
+            x: x,
+            y: y, 
+            fill: '#000',
+            font: this._getFont(font_size)
+        } );
+    },
+    _getTextWidth: function( text, font_size ){
+        return text.length * font_size/2;
+    },
+    _getFont: function(font_size) {
+        var font_string = font_size + "px Arial";
+        return font_string;
+    },
+    _getQuarterForDate: function getQuarter(d) {
+      d = d || new Date(); // If no date supplied, use today
+      var q = [4,1,2,3];
+      return "Q" + q[Math.floor(d.getMonth() / 3)];
+    },
+    _getStartOfQuarter: function( check_date ) {
+        var quarter_start_year = check_date.getFullYear();
+        
+        var quarter_start_months = [0, 3, 6, 9];
+        var quarter_start_month = quarter_start_months[Math.floor(check_date.getMonth() / 3)];
+        
+        var quarter_start = new Date(quarter_start_year, quarter_start_month, 1);
+
+        return quarter_start;
+    },
+    /*
+     * check for overlapping text markers
+     */
+    _getSafeY: function( x_text_start,x_text_end, y, font_size ){
+        var safe = true;
+       
+        Ext.Array.each(this.scheduled_items,function(item){
+            var test_x_text_start = item.x_text_start;
+            var test_x_text_end = item.x_text_end;
+            var test_y = item.y;
+            
+            if ( y < test_y + 5 && y > test_y - 5 ) {
+                if ( ( x_text_start >= test_x_text_start && x_text_start <= test_x_text_end  ) ||
+                     ( x_text_end <= test_x_text_end && x_text_end >= test_x_text_start ) || 
+                     ( x_text_start <= test_x_text_start && x_text_end >= test_x_text_end )) {
+                    safe = false;
+                }
+            }
+        });
+        
+        var new_y = y;
+        if ( !safe ) {
+            new_y = this._getSafeY(x_text_start,x_text_end, y+font_size+7, font_size);
+        }
+        return new_y;
+    },
+    _getPercentageOfMonthBurned: function(month_date,check_date){
+        var day_ordinal = check_date.getDate();
+        var last_day_of_month = Rally.util.DateTime.add(Rally.util.DateTime.add(month_date,'month',1),'day',-1);
+        var last_day_ordinal = last_day_of_month.getDate();
+        
+        var percentage = day_ordinal / last_day_ordinal;
+                
+        return percentage;
+    }
+});
+Ext.define('CustomApp', {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    items: [
+        {xtype:'container',itemId:'display_box'},
+        {xtype:'tsinfolink'}
+    ],
+    launch: function() {
+        console.log('types:', Rally.data.ModelTypes.types);
+        Rally.data.ModelFactory.registerTypes(['milestone'], Rally.data.WsapiModelFactory); 
+        
+        var start = this._getMonthFor(new Date());
+        var end = Rally.util.DateTime.add(start,"month",6);
+        
+        this._loadMilestonesBetweenDates(start, end).then({
+            scope: this,
+            success: function(milestones){
+                this.logger.log("milestones:", milestones);
+                this._showTimePipe(start,end,milestones,"TargetDate");
+            },
+            failure: function(msg) { this.down('#display_box').add({xtype:'container', html:msg}); }
+        });
+    },
+    _showTimePipe: function(start_date,end_date,records,date_field_name){
+        this.logger.log("_showTimePipe");
+        Ext.create('Rally.technicalservices.board.TimePipe',{
+            margin: 25,
+            start_date: start_date,
+            end_date: end_date,
+            records: records,
+            date_field: date_field_name,
+            renderIn: this.down('#display_box'),
+            width: this.getWidth(),
+            height: this.getHeight() - 50
+        });
+    },
+    _getMonthFor: function(date_in_month) {
+        this.logger.log("Shifting to beginning of month from:", date_in_month);
+        
+        date_in_month.setHours(0);
+        date_in_month.setMinutes(0);
+        date_in_month.setSeconds(0);
+        
+        var day_in_month = date_in_month.getDate()-1;
+        this.logger.log("Day In Month", day_in_month);
+        
+        var beginning_of_month = Rally.util.DateTime.add(date_in_month, 'day', -1*day_in_month);
+        
+        return beginning_of_month;
+    },
+    _loadMilestonesBetweenDates: function(start_date,end_date){
+        var deferred = Ext.create('Deft.Deferred');
+        this.logger.log("Fetching milestones between ", start_date, end_date);
+        if ( typeof start_date === 'object' ) { 
+            start_date = Rally.util.DateTime.toIsoString(start_date);
+        }
+        if ( typeof end_date === 'object' ) { 
+            end_date = Rally.util.DateTime.toIsoString(end_date);
+        }
+        this.logger.log("Fetching milestones between ", start_date, end_date);
+
+        var store = Ext.create('Rally.data.wsapi.Store', {
+            model: 'Milestone',
+            filters: [
+                { property: 'TargetDate', operator: '>', value: start_date },
+                { property: 'TargetDate', operator: '<', value: end_date }
+            ],
+            fetch: ['DisplayColor','FormattedID','Name','TargetDate'],
+            sorters: { property: 'TargetDate' },
+            autoLoad: true,
+            listeners: {
+                load: function(store, records, successful) {
+                    if (successful){
+                        deferred.resolve(records);
+                    } else {
+                        deferred.reject('Failed to load data for milestones]');
+                    }
+                }
+            }
+        });
+        return deferred.promise;
+    }
+});
+            
+               Rally.launchApp('CustomApp', {
+                   name: 'Timeline'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+    </style>
+
+</head>
+<body></body>
+</html>
