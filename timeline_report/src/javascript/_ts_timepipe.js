@@ -46,7 +46,13 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
          * 
          * If the record has a color for its DisplayColor, then put on top
          */
-        top_on_color: false
+        top_on_color: false,
+        /*
+         * @cfg {Boolean} show_date
+         * 
+         * Include a short form of the date with the text
+         */
+        show_date: false
     },
     constructor: function(config){
         this.callParent(arguments);
@@ -166,7 +172,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             }
         });
         Ext.Array.each(Ext.Array.flatten(record_markers), function(marker){
-            if ( marker.type == 'text') {
+            if ( marker.type != 'rect') {
                 timeboxes.push(marker);
             }
         });
@@ -189,10 +195,13 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             }
             
             var text = record.get('Name');
-            var x_text_start = this._getCenteredTextX(text,font_size,x);
-            var x_text_end = x_text_start + this._getTextWidth( text, font_size );
+
+            if (this.show_date) {
+                text = Ext.util.Format.date(record.get(this.date_field),'m/d')  + ":\n" + text;
+            }
             
-            var y_text_start = this._getSafeY( x_text_start, x_text_end, potential_text_y, font_size, is_above);
+            var x_text_start = this._getCenteredTextX(text,font_size,x);
+            var y_text_start = this._getSafeY( x_text_start, potential_text_y, text, font_size, is_above);
 
             var text_sprite = Ext.create( 'Ext.draw.Sprite', {
                 type: 'text',
@@ -200,12 +209,14 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
                 x: x_text_start,
                 y: y_text_start, 
                 fill: '#000',
-                font: this._getFont(font_size)
+                font: this._getFont(font_size),
+                fontSize: font_size
             } );
-            
-            this.scheduled_items.push( {text: text, x_text_start: x_text_start, x_text_end: x_text_end, y: y_text_start} );
+            this.scheduled_items.push( text_sprite );
 
-            markers.push(text_sprite);
+            text_sprites = this._getSpritesFromTextSprite(text_sprite, x);
+            
+            markers.push(text_sprites);
             
             var line_x = x;
             var line_y = y;
@@ -227,6 +238,35 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             );
         },this);
         return markers;
+    },
+    /*
+     * Text with \n will not let you center the second line, so
+     * let's break into an array of more than one.
+     */
+    _getSpritesFromTextSprite:function(text_sprite, x){
+        console.log(text_sprite.x);
+        var text_array = text_sprite.text.split('\n');
+        var sprites = [];
+        
+        var line_counter = 0;
+        Ext.Array.each( text_array, function(subtext) {
+            var sub_width = this._getTextWidth(subtext, text_sprite.fontSize);
+            var sub_x = this._getCenteredTextX(subtext,text_sprite.fontSize,x);
+            
+            sprites.push(Ext.create( 'Ext.draw.Sprite', {
+                type: 'text',
+                text: subtext,
+                x: sub_x,
+                y: text_sprite.y + ( line_counter * ( text_sprite.fontSize + 2 ) ), 
+                fill: '#000',
+                font: text_sprite.font,
+                fontSize: text_sprite.fontSize
+            } ));
+            line_counter++;
+            
+        },this);
+        
+        return sprites;
     },
     _getCenteredTextX: function(text,font_size,x){
         var width = this._getTextWidth( text, font_size );
@@ -275,32 +315,57 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
     /*
      * check for overlapping text markers
      */
-    _getSafeY: function( x_text_start,x_text_end, y, font_size, is_above ){
+    _getSafeY: function( potential_x, potential_y, text, font_size, is_above ){
         var safe = true;
-       
+        var bbox = this._guessBBox(potential_x, potential_y, text, font_size);
+        
+        var y = potential_y;
+        var x = potential_x;
+        
         Ext.Array.each(this.scheduled_items,function(item){
-            var test_x_text_start = item.x_text_start;
-            var test_x_text_end = item.x_text_end;
-            var test_y = item.y;
+            var check_bbox = this._guessBBox(item.x, item.y, item.text, item.fontSize);
             
-            if ( y < test_y + 5 && y > test_y - 5 ) {
-                if ( ( x_text_start >= test_x_text_start && x_text_start <= test_x_text_end  ) ||
-                     ( x_text_end <= test_x_text_end && x_text_end >= test_x_text_start ) || 
-                     ( x_text_start <= test_x_text_start && x_text_end >= test_x_text_end )) {
-                    safe = false;
-                }
+            if ( this._BBOverlap(bbox, check_bbox) ){
+                safe = false;
             }
-        });
+
+        },this);
         
         var new_y = y;
         if ( !safe ) {
-            var possible_y = y+font_size+7;
+            var possible_y = y + bbox.height + 7;
             if (is_above) {
-                possible_y = y - font_size - 7;
+                possible_y = y - bbox.height - 7;
             }
-            new_y = this._getSafeY(x_text_start,x_text_end, possible_y, font_size);
+            new_y = this._getSafeY(x, possible_y, text, font_size, is_above);
         }
         return new_y;
+    },
+    _BBOverlap: function( bbox_a, bbox_b ) {
+        var a_left_of_b =  ( bbox_a.x + bbox_a.width < bbox_b.x );
+        var a_right_of_b = ( bbox_a.x > bbox_b.x + bbox_b.width );
+        var a_above_b = ( bbox_a.y + bbox_a.height < bbox_b.y );
+        var a_below_b = ( bbox_a.y > bbox_b.y + bbox_b.height);
+        
+        //console.log( bbox_a, bbox_b ); 
+        //console.log( " -- ", a_left_of_b , a_right_of_b , a_above_b , a_below_b );
+        return !(a_left_of_b || a_right_of_b || a_above_b || a_below_b ) ;
+    },
+    _guessBBox: function( x, y, text, font_size ) {
+        var width = 0;
+        var line_counter = 0;
+        
+        var text_array = text.split('\n');
+        
+        Ext.Array.each( text_array, function(subtext) {
+            line_counter++;
+            var sub_width = this._getTextWidth(subtext, font_size);
+            if ( sub_width > width ) { width = sub_width; }
+        },this);
+        
+        var height = line_counter * ( font_size + 3 );
+                
+        return { x: x, y: y, width: width, height: height }
     },
     _getPercentageOfMonthBurned: function(month_date,check_date){
         var day_ordinal = check_date.getDate();

@@ -33,7 +33,8 @@ Ext.define('CustomApp', {
             renderIn: this.down('#display_box'),
             width: this.getWidth(),
             height: this.getHeight() - 50,
-            top_on_color: true
+            top_on_color: true,
+            show_date: true
         });
     },
     _getMonthFor: function(date_in_month) {

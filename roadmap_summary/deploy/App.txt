@@ -3,11 +3,11 @@
 <head>
     <title>Roadmap Summary Report</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sat Nov 22 2014 11:39:23 GMT-0800 (PST) -->
+    <!--  Build Date: Fri Dec 05 2014 10:18:26 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sat Nov 22 2014 11:39:23 GMT-0800 (PST)";
-        var CHECKSUM = 6361318342;
+        var APP_BUILD_DATE = "Fri Dec 05 2014 10:18:26 GMT-0800 (PST)";
+        var CHECKSUM = 6360400111;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -179,8 +179,8 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
             'clickMarker'
         );
 
-        this.height = this.height || 800;
-        this.width = this.width || 1000;
+        this.height = this.height || 400;
+        this.width = this.width || 800;
         this.margin = this.margin || 2;
         
         var timeboxes = this._createTimeboxes();
