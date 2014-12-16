@@ -281,7 +281,7 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
     },
     _getQuarterForDate: function getQuarter(d) {
       d = d || new Date(); // If no date supplied, use today
-      var q = [4,1,2,3];
+      var q = [1,2,3,4];
       return "Q" + q[Math.floor(d.getMonth() / 3)];
     },
     _getStartOfQuarter: function( check_date ) {
@@ -291,7 +291,7 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
         var quarter_start_month = quarter_start_months[Math.floor(check_date.getMonth() / 3)];
         
         var quarter_start = new Date(quarter_start_year, quarter_start_month, 1);
-
+        
         return quarter_start;
     },
     /*

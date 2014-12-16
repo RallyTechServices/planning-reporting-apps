@@ -3,10 +3,10 @@
 <head>
     <title>Roadmap Summary Report</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Dec 05 2014 10:18:27 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Dec 16 2014 15:59:14 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Dec 05 2014 10:18:27 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Tue Dec 16 2014 15:59:14 GMT-0800 (PST)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -421,7 +421,7 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
     },
     _getQuarterForDate: function getQuarter(d) {
       d = d || new Date(); // If no date supplied, use today
-      var q = [4,1,2,3];
+      var q = [1,2,3,4];
       return "Q" + q[Math.floor(d.getMonth() / 3)];
     },
     _getStartOfQuarter: function( check_date ) {
@@ -431,7 +431,7 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
         var quarter_start_month = quarter_start_months[Math.floor(check_date.getMonth() / 3)];
         
         var quarter_start = new Date(quarter_start_year, quarter_start_month, 1);
-
+        
         return quarter_start;
     },
     /*

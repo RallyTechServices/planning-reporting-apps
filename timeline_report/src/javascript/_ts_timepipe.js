@@ -249,7 +249,9 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         var sprites = [];
         
         var line_counter = 0;
-        Ext.Array.each( text_array, function(subtext) {
+        Ext.Array.each( text_array, function(line_text) {
+            var subtext = Ext.util.Format.ellipsis(line_text, 15);
+            
             var sub_width = this._getTextWidth(subtext, text_sprite.fontSize);
             var sub_x = this._getCenteredTextX(subtext,text_sprite.fontSize,x);
             

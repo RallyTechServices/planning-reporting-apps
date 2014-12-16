@@ -3,10 +3,10 @@
 <head>
     <title>Timeline</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Dec 05 2014 10:20:08 GMT-0800 (PST) -->
+    <!--  Build Date: Fri Dec 05 2014 10:28:50 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Dec 05 2014 10:20:08 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Fri Dec 05 2014 10:28:50 GMT-0800 (PST)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -389,7 +389,9 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         var sprites = [];
         
         var line_counter = 0;
-        Ext.Array.each( text_array, function(subtext) {
+        Ext.Array.each( text_array, function(line_text) {
+            var subtext = Ext.util.Format.ellipsis(line_text, 15);
+            
             var sub_width = this._getTextWidth(subtext, text_sprite.fontSize);
             var sub_x = this._getCenteredTextX(subtext,text_sprite.fontSize,x);
             
