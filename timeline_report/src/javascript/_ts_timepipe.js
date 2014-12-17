@@ -61,6 +61,17 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
     initComponent: function() {
         this.callParent(arguments);
         
+        this.addEvents(
+            /**
+             * @event
+             * Fired when a record marker is clicked on 
+             * 
+             * @param {Sprite} the text marker that was clicked
+             * @param {Ext.data.Model} the record that the marker represents
+             */
+            'clickMarker'
+        );
+        
         if ( this.renderIn === null ) {
             throw "Cannot create a TimePipe without assigning renderIn";
         }
@@ -214,7 +225,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             } );
             this.scheduled_items.push( text_sprite );
 
-            text_sprites = this._getSpritesFromTextSprite(text_sprite, x);
+            var text_sprites = this._getSpritesFromTextSprite(text_sprite, x, record);
             
             markers.push(text_sprites);
             
@@ -243,8 +254,8 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
      * Text with \n will not let you center the second line, so
      * let's break into an array of more than one.
      */
-    _getSpritesFromTextSprite:function(text_sprite, x){
-        console.log(text_sprite.x);
+    _getSpritesFromTextSprite:function(text_sprite, x, record){
+        var me = this;
         var text_array = text_sprite.text.split('\n');
         var sprites = [];
         
@@ -262,7 +273,12 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
                 y: text_sprite.y + ( line_counter * ( text_sprite.fontSize + 2 ) ), 
                 fill: '#000',
                 font: text_sprite.font,
-                fontSize: text_sprite.fontSize
+                fontSize: text_sprite.fontSize,
+                listeners: {
+                    click: function(){
+                        me.fireEvent('clickMarker',this,record);
+                    }
+                }
             } ));
             line_counter++;
             

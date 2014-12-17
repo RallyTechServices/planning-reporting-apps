@@ -34,8 +34,32 @@ Ext.define('CustomApp', {
             width: this.getWidth(),
             height: this.getHeight() - 50,
             top_on_color: true,
-            show_date: true
+            show_date: true,
+            listeners: {
+                scope: this,
+                clickMarker: this._showMilestoneInfo
+            }
         });
+    },
+    _showMilestoneInfo: function(marker,milestone) {
+        this.logger.log("clicked with ", marker, milestone);
+        
+        var dialog = Ext.create('Rally.ui.dialog.Dialog',{
+            autoShow: true,
+            draggable: true,
+            closable: true,
+            width: 300,
+            title: milestone.get('Name')
+         });
+         
+         dialog.add({
+            xtype: 'rallygrid',
+            storeConfig: {
+                model:'PortfolioItem/Feature',
+                filters: [{property:'Milestones.Name', operator: 'contains', value:milestone.get('Name')}]
+            },
+            columnCfgs: [{dataIndex:'FormattedID',text:'id'},{dataIndex:'Name',text:'Name'}]
+         });
     },
     _getMonthFor: function(date_in_month) {
         this.logger.log("Shifting to beginning of month from:", date_in_month);

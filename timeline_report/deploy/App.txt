@@ -3,11 +3,11 @@
 <head>
     <title>Timeline</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Dec 05 2014 10:28:49 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Dec 16 2014 16:34:16 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Dec 05 2014 10:28:49 GMT-0800 (PST)";
-        var CHECKSUM = 9126562888;
+        var APP_BUILD_DATE = "Tue Dec 16 2014 16:34:16 GMT-0800 (PST)";
+        var CHECKSUM = 10159756852;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -201,6 +201,17 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
     initComponent: function() {
         this.callParent(arguments);
         
+        this.addEvents(
+            /**
+             * @event
+             * Fired when a record marker is clicked on 
+             * 
+             * @param {Sprite} the text marker that was clicked
+             * @param {Ext.data.Model} the record that the marker represents
+             */
+            'clickMarker'
+        );
+        
         if ( this.renderIn === null ) {
             throw "Cannot create a TimePipe without assigning renderIn";
         }
@@ -354,7 +365,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             } );
             this.scheduled_items.push( text_sprite );
 
-            text_sprites = this._getSpritesFromTextSprite(text_sprite, x);
+            var text_sprites = this._getSpritesFromTextSprite(text_sprite, x, record);
             
             markers.push(text_sprites);
             
@@ -383,8 +394,8 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
      * Text with \n will not let you center the second line, so
      * let's break into an array of more than one.
      */
-    _getSpritesFromTextSprite:function(text_sprite, x){
-        console.log(text_sprite.x);
+    _getSpritesFromTextSprite:function(text_sprite, x, record){
+        var me = this;
         var text_array = text_sprite.text.split('\n');
         var sprites = [];
         
@@ -402,7 +413,12 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
                 y: text_sprite.y + ( line_counter * ( text_sprite.fontSize + 2 ) ), 
                 fill: '#000',
                 font: text_sprite.font,
-                fontSize: text_sprite.fontSize
+                fontSize: text_sprite.fontSize,
+                listeners: {
+                    click: function(){
+                        me.fireEvent('clickMarker',this,record);
+                    }
+                }
             } ));
             line_counter++;
             
@@ -555,8 +571,32 @@ Ext.define('CustomApp', {
             width: this.getWidth(),
             height: this.getHeight() - 50,
             top_on_color: true,
-            show_date: true
+            show_date: true,
+            listeners: {
+                scope: this,
+                clickMarker: this._showMilestoneInfo
+            }
         });
+    },
+    _showMilestoneInfo: function(marker,milestone) {
+        this.logger.log("clicked with ", marker, milestone);
+        
+        var dialog = Ext.create('Rally.ui.dialog.Dialog',{
+            autoShow: true,
+            draggable: true,
+            closable: true,
+            width: 300,
+            title: milestone.get('Name')
+         });
+         
+         dialog.add({
+            xtype: 'rallygrid',
+            storeConfig: {
+                model:'PortfolioItem/Feature',
+                filters: [{property:'Milestones.Name', operator: 'contains', value:milestone.get('Name')}]
+            },
+            columnCfgs: [{dataIndex:'FormattedID',text:'id'},{dataIndex:'Name',text:'Name'}]
+         });
     },
     _getMonthFor: function(date_in_month) {
         this.logger.log("Shifting to beginning of month from:", date_in_month);
