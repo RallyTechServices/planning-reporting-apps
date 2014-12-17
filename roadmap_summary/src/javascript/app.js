@@ -53,17 +53,17 @@ Ext.define('CustomApp', {
     _getRecords: function(model_name, model_fields){
         var deferred = Ext.create('Deft.Deferred');
         
-        var context = this.getContext();
-        if ( model_name == "Release" ) {
-            context = {
-                projectScopeDown: false
-            }
-        }
-        var defectStore = Ext.create('Rally.data.wsapi.Store', {
+//        var context = this.getContext();
+//        if ( model_name == "Release" ) {
+//            context = {
+//                projectScopeDown: false
+//            }
+//        }
+        Ext.create('Rally.data.wsapi.Store', {
             model: model_name,
             fetch: model_fields,
             autoLoad: true,
-            context: context,
+            sorters: [{property: 'Name'}],
             listeners: {
                 load: function(store, records, successful) {
                     if (successful){
