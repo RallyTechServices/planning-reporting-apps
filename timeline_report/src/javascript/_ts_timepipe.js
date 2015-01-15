@@ -223,11 +223,9 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
                 font: this._getFont(font_size),
                 fontSize: font_size
             } );
-            this.scheduled_items.push( text_sprite ); // used for looking for overlaps
-
-            var text_sprites = this._getSpritesFromTextSprite(text_sprite, x, record); // used for displaying
             
-            markers.push(text_sprites);
+            var text_sprites = this._getSpritesFromTextSprite(text_sprite, x, record); // used for displaying
+
             
             var line_x = x;
             var line_y = y;
@@ -237,13 +235,20 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
                 line_height = y - y_text_start;
             }
             
+            console.log("line for ", text);
+            markers.push(this._getSafeLine(line_x, line_y, line_height, is_above));
             
-            markers.push(this._getSafeLine(line_x, line_y, line_height));
+            this.scheduled_items.push( text_sprite ); // used for looking for overlaps            
+            markers.push(text_sprites);
+            
         },this);
         return markers;
     },
-    _getSafeLine: function(line_x, line_y, line_height) {
-        return Ext.create('Ext.draw.Sprite', {
+    _getSafeLine: function(line_x, line_y, line_height, is_above) {
+        var safe = true;
+        var bbox = { x: line_x, y: line_y, width: 2, height: line_height };
+        
+        var line = {
             type:'rect',
             width: 2,
             height: line_height,
@@ -252,7 +257,47 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             opacity: 1,
             'stroke-width': 0,
             fill: '#B2E0FF'
-        });
+        };
+        
+        Ext.Array.each(this.scheduled_items,function(item){
+            var check_bbox = this._guessBBox(item.x, item.y, item.text, item.fontSize);
+            
+            if ( this._BBOverlap(bbox, check_bbox) ){
+                safe = false;
+                var start_x = line_x;
+                var start_y = line_y;
+                var first_bend_y = check_bbox.y;
+                var first_bend_x = check_bbox.x + check_bbox.width + 2;
+                var second_bend_y = check_bbox.y + check_bbox.height;
+                var final_y = line_y + line_height;
+                
+                if ( !is_above ) {
+                    first_bend_y = check_bbox.y - 10;
+                    first_bend_x = check_bbox.x + check_bbox.width + 25;
+                    second_bend_y = line_y + line_height - 5;
+                    
+                }
+                
+                line =  {
+                    type  : "path",
+                    path  : "M " + start_x + " " + start_y + " " + 
+                            "L" + start_x + " " + first_bend_y + " " + 
+                            "L" + first_bend_x + " " + first_bend_y + " " +
+                            "L" + first_bend_x + " " + second_bend_y + " " + 
+                            "L" + start_x + " " + second_bend_y + " " + 
+                            "L" + start_x + " " + final_y,
+                    opacity: 1,
+                    'stroke-width': 2,
+                    'stroke': '#B2E0FF'
+                };
+            }
+
+        },this);
+        
+        console.log('line', line);
+        
+        console.log(safe);
+        return Ext.create('Ext.draw.Sprite', line );
     },
     /*
      * Text with \n will not let you center the second line, so
@@ -364,8 +409,10 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         return new_y;
     },
     _BBOverlap: function( bbox_a, bbox_b ) {
-        var a_left_of_b =  ( bbox_a.x + bbox_a.width < bbox_b.x );
-        var a_right_of_b = ( bbox_a.x > bbox_b.x + bbox_b.width );
+        var tolerance = 25;
+        
+        var a_left_of_b =  ( bbox_a.x + bbox_a.width < bbox_b.x + tolerance );
+        var a_right_of_b = ( bbox_a.x > bbox_b.x + bbox_b.width + tolerance );
         var a_above_b = ( bbox_a.y + bbox_a.height < bbox_b.y );
         var a_below_b = ( bbox_a.y > bbox_b.y + bbox_b.height);
         
