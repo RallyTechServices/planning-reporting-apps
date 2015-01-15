@@ -223,9 +223,9 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
                 font: this._getFont(font_size),
                 fontSize: font_size
             } );
-            this.scheduled_items.push( text_sprite );
+            this.scheduled_items.push( text_sprite ); // used for looking for overlaps
 
-            var text_sprites = this._getSpritesFromTextSprite(text_sprite, x, record);
+            var text_sprites = this._getSpritesFromTextSprite(text_sprite, x, record); // used for displaying
             
             markers.push(text_sprites);
             
@@ -233,22 +233,26 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             var line_y = y;
             var line_height = y_text_start - y - font_size;
             if  (is_above) {
-                line_y = y_text_start + 5;
+                line_y = text_sprites[text_sprites.length-1].y + 7;
                 line_height = y - y_text_start;
             }
-            markers.push(Ext.create('Ext.draw.Sprite', {
-                    type:'rect',
-                    width: 2,
-                    height: line_height,
-                    x: line_x,
-                    y: line_y,
-                    opacity: 1,
-                    'stroke-width': 0,
-                    fill: '#B2E0FF'
-                })
-            );
+            
+            
+            markers.push(this._getSafeLine(line_x, line_y, line_height));
         },this);
         return markers;
+    },
+    _getSafeLine: function(line_x, line_y, line_height) {
+        return Ext.create('Ext.draw.Sprite', {
+            type:'rect',
+            width: 2,
+            height: line_height,
+            x: line_x,
+            y: line_y,
+            opacity: 1,
+            'stroke-width': 0,
+            fill: '#B2E0FF'
+        });
     },
     /*
      * Text with \n will not let you center the second line, so
