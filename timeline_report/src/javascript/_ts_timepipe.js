@@ -226,17 +226,16 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             
             var text_sprites = this._getSpritesFromTextSprite(text_sprite, x, record); // used for displaying
 
-            
             var line_x = x;
-            var line_y = y;
-            var line_height = y_text_start - y - font_size;
+            var line_y_start = y;
+            var line_y_end = y_text_start - font_size;
             if  (is_above) {
-                line_y = text_sprites[text_sprites.length-1].y + 7;
-                line_height = y - y_text_start;
+                line_y_start = text_sprites[text_sprites.length-1].y + 7;
+                line_y_end = y;
             }
             
             console.log("line for ", text);
-            markers.push(this._getSafeLine(line_x, line_y, line_height, is_above));
+            markers.push(this._getSafeLine(line_x, line_y_start, line_y_end, is_above));
             
             this.scheduled_items.push( text_sprite ); // used for looking for overlaps            
             markers.push(text_sprites);
@@ -244,38 +243,47 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         },this);
         return markers;
     },
-    _getSafeLine: function(line_x, line_y, line_height, is_above) {
+    _getSafeLine: function(line_x, line_y_start, line_y_end, is_above) {
+        console.log("x,y0,y1,is_above",line_x, line_y_start, line_y_end, is_above);
         var safe = true;
-        var bbox = { x: line_x, y: line_y, width: 2, height: line_height };
+        var bbox = { x: line_x, y: line_y_start, width: 2, height: line_y_end };
         
+        var start_x = line_x;
+        var start_y = line_y_start;
+        var end_y = line_y_end;
         var line = {
-            type:'rect',
-            width: 2,
-            height: line_height,
-            x: line_x,
-            y: line_y,
-            opacity: 1,
-            'stroke-width': 0,
-            fill: '#B2E0FF'
-        };
+                type  : "path",
+                path  : "M " + start_x + " " + start_y + " " + 
+                        "L" + start_x + " " + end_y,
+                opacity: 1,
+                'stroke-width': 2,
+                'stroke': '#B2E0FF'
+            };
         
         Ext.Array.each(this.scheduled_items,function(item){
             var check_bbox = this._guessBBox(item.x, item.y, item.text, item.fontSize);
             
             if ( this._BBOverlap(bbox, check_bbox) ){
+                console.log('bbox', check_bbox);
                 safe = false;
-                var start_x = line_x;
-                var start_y = line_y;
-                var first_bend_y = check_bbox.y;
-                var first_bend_x = check_bbox.x + check_bbox.width + 2;
-                var second_bend_y = check_bbox.y + check_bbox.height;
-                var final_y = line_y + line_height;
+                var text_right = check_bbox.x + check_bbox.width ;
+                var text_top = check_bbox.y - ( 0.5 * check_bbox.height );
+                var text_bottom = check_bbox.y ;
                 
-                if ( !is_above ) {
-                    first_bend_y = check_bbox.y - 10;
-                    first_bend_x = check_bbox.x + check_bbox.width + 25;
-                    second_bend_y = line_y + line_height - 5;
+                var start_x = line_x;
+                var start_y = line_y_start;
+                var first_bend_y = (text_top > start_y) ? text_top : start_y - 5;
+                var first_bend_x = (text_right > start_x) ? text_right : start_x + 3;
+                var second_bend_y = (text_bottom > end_y) ? text_bottom : end_y - 2;
+                var final_y = line_y_end;
+                
+                if ( is_above ) {
+                    console.log('is_above');
+                    text_top = check_bbox.y;
+                    text_bottom = check_bbox.y + check_bbox.height;
                     
+                    first_bend_y = (text_top > start_y) ? text_top : start_y + 2;
+                    second_bend_y = (text_bottom < end_y) ? text_bottom : end_y - 2;
                 }
                 
                 line =  {
@@ -296,7 +304,6 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         
         console.log('line', line);
         
-        console.log(safe);
         return Ext.create('Ext.draw.Sprite', line );
     },
     /*
