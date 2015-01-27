@@ -218,14 +218,15 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
                 type: 'text',
                 text: text,
                 x: x_text_start,
-                y: y_text_start, 
+                y: y_text_start,
+                x_center: x,
                 fill: '#000',
                 font: this._getFont(font_size),
                 fontSize: font_size
             } );
             
             var text_sprites = this._getSpritesFromTextSprite(text_sprite, x, record); // used for displaying
-
+            
             var line_x = x;
             var line_y_start = y;
             var line_y_end = y_text_start - font_size;
@@ -234,8 +235,10 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
                 line_y_end = y;
             }
             
-            console.log("line for ", text);
-            markers.push(this._getSafeLine(line_x, line_y_start, line_y_end, is_above));
+            // For seeing what the bbox is giving us
+            // markers.push(this._getBoxAroundText(text_sprite, x));
+            
+            markers.push(this._getSafeLine(line_x, line_y_start, line_y_end, is_above, text_sprite));
             
             this.scheduled_items.push( text_sprite ); // used for looking for overlaps            
             markers.push(text_sprites);
@@ -243,66 +246,83 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         },this);
         return markers;
     },
-    _getSafeLine: function(line_x, line_y_start, line_y_end, is_above) {
-        console.log("x,y0,y1,is_above",line_x, line_y_start, line_y_end, is_above);
+    _getBoxAroundText: function(item, center_x) {
+        var bbox = this._guessBBox(center_x, item.y, item.text, item.fontSize);
+        
+        var x0 = bbox.x;
+        var y0 = bbox.y;
+        
+        var y1 = y0 + bbox.height;
+        var x1 = x0 + bbox.width;
+
+        var line = {
+            type  : "path",
+            path  : "M " + x0 + " " + y0 + " " + 
+                    "L" + x0 + " " + y1 + " " +
+                    "L" + x1 + " " + y1 + " " +
+                    "L" + x1 + " " + y0 + " " +
+                    "L" + x0 + " " + y0 ,
+            opacity: 1,
+            'stroke-width': 2,
+            'stroke': '#ccc'
+        };
+                
+        return line;
+        
+    },
+    _getSafeLine: function(line_x, line_y_start, line_y_end, is_above, target_item) {
         var safe = true;
-        var bbox = { x: line_x, y: line_y_start, width: 2, height: line_y_end };
+        var bbox = { x: line_x, y: line_y_start, width: 2, height: line_y_end - line_y_start };
         
         var start_x = line_x;
         var start_y = line_y_start;
         var end_y = line_y_end;
         var line = {
-                type  : "path",
-                path  : "M " + start_x + " " + start_y + " " + 
-                        "L" + start_x + " " + end_y,
-                opacity: 1,
-                'stroke-width': 2,
-                'stroke': '#B2E0FF'
-            };
+            type  : "path",
+            path  : "M " + start_x + " " + start_y + " " + 
+                    "L" + start_x + " " + end_y,
+            opacity: 1,
+            'stroke-width': 2,
+            'stroke': '#B2E0FF'
+        };
         
         Ext.Array.each(this.scheduled_items,function(item){
-            var check_bbox = this._guessBBox(item.x, item.y, item.text, item.fontSize);
-            
+            // needs to have line_x be the center of the item.  hmm.
+            var check_bbox = this._guessBBox(item.x_center, item.y, item.text, item.fontSize);
+        
             if ( this._BBOverlap(bbox, check_bbox) ){
-                console.log('bbox', check_bbox);
                 safe = false;
-                var text_right = check_bbox.x + check_bbox.width ;
-                var text_top = check_bbox.y - ( 0.5 * check_bbox.height );
+                var text_right  = check_bbox.x + check_bbox.width;
+                var text_top    = check_bbox.y - ( 0.5 * check_bbox.height );
                 var text_bottom = check_bbox.y ;
                 
-                var start_x = line_x;
-                var start_y = line_y_start;
+                start_x = line_x;
+                start_y = line_y_start;
+                end_y = line_y_end;
+
                 var first_bend_y = (text_top > start_y) ? text_top : start_y - 5;
-                var first_bend_x = (text_right > start_x) ? text_right : start_x + 3;
+                var first_bend_x = text_right;
                 var second_bend_y = (text_bottom > end_y) ? text_bottom : end_y - 2;
-                var final_y = line_y_end;
+                var final_y = end_y;
                 
                 if ( is_above ) {
-                    console.log('is_above');
                     text_top = check_bbox.y;
                     text_bottom = check_bbox.y + check_bbox.height;
                     
                     first_bend_y = (text_top > start_y) ? text_top : start_y + 2;
                     second_bend_y = (text_bottom < end_y) ? text_bottom : end_y - 2;
+                    line.stroke = is_above;
                 }
-                
-                line =  {
-                    type  : "path",
-                    path  : "M " + start_x + " " + start_y + " " + 
+                line.path = "M " + start_x + " " + start_y + " " + 
                             "L" + start_x + " " + first_bend_y + " " + 
                             "L" + first_bend_x + " " + first_bend_y + " " +
                             "L" + first_bend_x + " " + second_bend_y + " " + 
                             "L" + start_x + " " + second_bend_y + " " + 
-                            "L" + start_x + " " + final_y,
-                    opacity: 1,
-                    'stroke-width': 2,
-                    'stroke': '#B2E0FF'
-                };
+                            "L" + start_x + " " + final_y;
             }
 
         },this);
         
-        console.log('line', line);
         
         return Ext.create('Ext.draw.Sprite', line );
     },
@@ -321,7 +341,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             
             var sub_width = this._getTextWidth(subtext, text_sprite.fontSize);
             var sub_x = this._getCenteredTextX(subtext,text_sprite.fontSize,x);
-            
+                        
             sprites.push(Ext.create( 'Ext.draw.Sprite', {
                 type: 'text',
                 text: subtext,
@@ -342,7 +362,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         
         return sprites;
     },
-    _getCenteredTextX: function(text,font_size,x){
+    _getCenteredTextX: function(text,font_size,x){        
         var width = this._getTextWidth( text, font_size );
         var start = x - width/2;
         if ( start < this.margin ) { start = this.margin; }
@@ -365,7 +385,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         } );
     },
     _getTextWidth: function( text, font_size ){
-        return text.length * font_size/2;
+        return ( text.length * font_size/2 ) + 1;
     },
     _getFont: function(font_size) {
         var font_string = font_size + "px Arial";
@@ -416,32 +436,37 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         return new_y;
     },
     _BBOverlap: function( bbox_a, bbox_b ) {
-        var tolerance = 25;
+        var tolerance = 5;
         
-        var a_left_of_b =  ( bbox_a.x + bbox_a.width < bbox_b.x + tolerance );
+        var a_left_of_b =  ( bbox_a.x + bbox_a.width < bbox_b.x - tolerance );
         var a_right_of_b = ( bbox_a.x > bbox_b.x + bbox_b.width + tolerance );
         var a_above_b = ( bbox_a.y + bbox_a.height < bbox_b.y );
         var a_below_b = ( bbox_a.y > bbox_b.y + bbox_b.height);
         
-        //console.log( bbox_a, bbox_b ); 
-        //console.log( " -- ", a_left_of_b , a_right_of_b , a_above_b , a_below_b );
-        return !(a_left_of_b || a_right_of_b || a_above_b || a_below_b ) ;
+        return !(a_left_of_b || a_right_of_b || a_above_b || a_below_b );
     },
     _guessBBox: function( x, y, text, font_size ) {
         var width = 0;
         var line_counter = 0;
-        
+        var x0 = x;
+            
         var text_array = text.split('\n');
         
         Ext.Array.each( text_array, function(subtext) {
             line_counter++;
+            var subtext = Ext.util.Format.ellipsis(subtext, 15);
             var sub_width = this._getTextWidth(subtext, font_size);
-            if ( sub_width > width ) { width = sub_width; }
+            var sub_x = this._getCenteredTextX(subtext,font_size,x);
+            
+            if ( sub_width > width ) { 
+                x0 = sub_x;
+                width = sub_width; 
+            }
         },this);
         
-        var height = line_counter * ( font_size + 3 );
-                
-        return { x: x, y: y, width: width, height: height }
+        var height = line_counter * ( font_size + 5 );
+        var y0 = y - (font_size);
+        return { x: x0, y: y0, width: width, height: height }
     },
     _getPercentageOfMonthBurned: function(month_date,check_date){
         var day_ordinal = check_date.getDate();

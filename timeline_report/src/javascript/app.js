@@ -24,6 +24,11 @@ Ext.define('CustomApp', {
     },
     _showTimePipe: function(start_date,end_date,records,date_field_name){
         this.logger.log("_showTimePipe");
+        var container = this.down('#display_box');
+        
+        console.log('container:', container.getHeight(),container.getWidth());
+        console.log('page     :', this.getHeight(),this.getWidth());
+        
         Ext.create('Rally.technicalservices.board.TimePipe',{
             margin: 25,
             start_date: start_date,

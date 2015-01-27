@@ -68,7 +68,13 @@ module.exports = function(grunt) {
                 },
                 apikey: {
                     src: 'templates/App-apikey-tpl.html',
-                    dest: 'deploy/ExternalApp.html',
+                    dest: 'deploy/ExternalApp.txt',
+                    engine: 'underscore',
+                    variables: config
+                },
+                confluence: {
+                    src: 'templates/App-confluence-tpl.html',
+                    dest: 'deploy/ConfluenceApp.txt',
                     engine: 'underscore',
                     variables: config
                 },
@@ -147,7 +153,7 @@ module.exports = function(grunt) {
     //
     grunt.registerTask('ugly', "Create the ugly html for deployment",['uglify:ugly','template:ugly']);
     //
-    grunt.registerTask('apikey', "Create an html file that can run on another server", ['template:apikey']);
+    grunt.registerTask('apikey', "Create an html file that can run on another server", ['template:apikey','template:confluence']);
 
     grunt.registerTask('test-fast', "Run tests that don't need to connect to Rally", ['jasmine:fast']);
     grunt.registerTask('test-slow', "Run tests that need to connect to Rally", ['jasmine:slow']);
