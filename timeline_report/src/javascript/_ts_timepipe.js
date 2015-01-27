@@ -1,7 +1,6 @@
 Ext.define('Rally.technicalservices.board.TimePipe',{
     extend: 'Ext.container.Container',
     alias: 'widget.tstimepipe',
-    scheduled_items: [], /* items that will show up in the quarter columns (e.g., releases) */
     config: {
         /*
          * @cfg {Ext.data.model} records The items to be placed on the timeboxes
@@ -52,14 +51,12 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
          * 
          * Include a short form of the date with the text
          */
-        show_date: false
-    },
-    constructor: function(config){
-        this.callParent(arguments);
-        this.initConfig(config);
+        show_date: false,
+        scheduled_items: [] /* items that will show up in the quarter columns (e.g., releases) */
     },
     initComponent: function() {
         this.callParent(arguments);
+        this.scheduled_items = [];
         
         this.addEvents(
             /**
@@ -79,6 +76,8 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             throw "Cannot create TimePipe with any granularity other than 'month' right now";
         }
 
+        this.renderIn.removeAll();
+        
         this.height = this.height || 800;
         this.width = this.width || 1000;
         this.margin = this.margin || 2;
@@ -99,6 +98,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         });
         
         this.renderIn.add(this.container);
+        return this;
     },
     _createPipe: function() {
         var margin = this.margin;
