@@ -3,11 +3,11 @@
 <head>
     <title>Roadmap Summary Report</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Mar 25 2015 20:52:00 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Mar 26 2015 09:39:52 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Mar 25 2015 20:52:00 GMT-0700 (PDT)";
-        var CHECKSUM = 20642728094;
+        var APP_BUILD_DATE = "Thu Mar 26 2015 09:39:52 GMT-0700 (PDT)";
+        var CHECKSUM = 20933787833;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -1141,6 +1141,17 @@ Ext.define('CustomApp', {
     margin-top: 25px;
     margin-right: 5px;
     cursor: pointer;
+}
+
+.x-tree-icon {
+    background: none;
+}
+    
+.x-grid-tree-node-expanded .x-tree-icon-parent {
+    background: none;
+}
+.x-grid-row  .x-tree-icon-leaf {
+    background-image:none;
 }
     </style>
 

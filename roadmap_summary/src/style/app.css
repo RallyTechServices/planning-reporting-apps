@@ -15,3 +15,14 @@
     margin-right: 5px;
     cursor: pointer;
 }
+
+.x-tree-icon {
+    background: none;
+}
+    
+.x-grid-tree-node-expanded .x-tree-icon-parent {
+    background: none;
+}
+.x-grid-row  .x-tree-icon-leaf {
+    background-image:none;
+}
