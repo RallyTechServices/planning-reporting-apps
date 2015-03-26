@@ -3,10 +3,10 @@
 <head>
     <title>Roadmap Summary Report</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Dec 16 2014 16:09:04 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Mar 25 2015 20:39:47 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Dec 16 2014 16:09:04 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Wed Mar 25 2015 20:39:47 GMT-0700 (PDT)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -15,6 +15,396 @@
     <script type="text/javascript">
         Rally.onReady(function() {
              
+/*
+Tree combo
+Use with 'Ext.data.TreeStore'
+
+
+If store root note has 'checked' property tree combo becomes multiselect combo (tree store must have records with 'checked' property)
+
+
+Has event 'itemclick' that can be used to capture click
+
+
+Options:
+selectChildren - if set true and if store isn't multiselect, clicking on an non-leaf node selects all it's children
+canSelectFolders - if set true and store isn't multiselect clicking on a folder selects that folder also as a value
+
+
+Use:
+
+
+single leaf node selector:
+selectChildren: false
+canSelectFolders: false
+- this will select only leaf nodes and will not allow selecting non-leaf nodes
+
+
+single node selector (can select leaf and non-leaf nodes)
+selectChildren: false
+canSelectFolders: true
+- this will select single value either leaf or non-leaf
+
+
+children selector:
+selectChildren: true
+canSelectFolders: true
+- clicking on a node will select it's children and node, clicking on a leaf node will select only that node
+
+
+This config:
+selectChildren: true
+canSelectFolders: false
+- is invalid, you cannot select children without node
+
+
+*/
+Ext.define('Ext.ux.TreeCombo',
+{
+    extend: 'Ext.form.field.Picker',
+    alias: 'widget.treecombo',
+    tree: false,
+    constructor: function(config)
+    {
+        this.addEvents(
+        {
+            "itemclick" : true
+        });
+
+
+        this.listeners = config.listeners;
+        this.callParent(arguments);
+    },
+    records: [],
+    recursiveRecords: [],
+    ids: [],
+    selectChildren: true,
+    canSelectFolders: true,
+    multiselect: false,
+    displayField: 'text',
+    valueField: 'id',
+    treeWidth: 300,
+    matchFieldWidth: false,
+    treeHeight: 400,
+    masN: 0,
+    recursivePush: function(node, setIds)
+    {
+        var me = this;
+
+
+        me.addRecRecord(node);
+        if(setIds) me.addIds(node);
+        
+        node.eachChild(function(nodesingle)
+        {
+            if(nodesingle.hasChildNodes() == true)
+            {
+                me.recursivePush(nodesingle, setIds);
+            }
+            else
+            {
+                me.addRecRecord(nodesingle);
+                if(setIds) me.addIds(nodesingle);
+            }
+        });
+    },
+    recursiveUnPush: function(node)
+    {
+        var me = this;
+        me.removeIds(node);
+        
+        node.eachChild(function(nodesingle)
+        {
+            if(nodesingle.hasChildNodes() == true)
+            {
+                me.recursiveUnPush(nodesingle);
+            }
+            else me.removeIds(nodesingle);
+        });
+    },
+    addRecRecord: function(record)
+    {
+        var me = this;
+
+
+        for(var i=0,j=me.recursiveRecords.length;i<j;i++)
+        {
+            var item = me.recursiveRecords[i];
+            if(item)
+            {
+                if(item.getId() == record.getId()) return;
+            }
+        }
+        me.recursiveRecords.push(record);
+    },
+    afterLoadSetValue: false,
+    setValue: function(valueInit)
+    {
+        if(typeof valueInit == 'undefined') return;
+        
+        var me = this,
+            tree = this.tree,
+            values = (valueInit == '') ? [] : valueInit.split(','),
+            valueFin = [];
+            
+        inputEl = me.inputEl;
+
+
+        if(tree.store.isLoading())
+        {
+            me.afterLoadSetValue = valueInit;
+        }
+
+
+        if(inputEl && me.emptyText && !Ext.isEmpty(values))
+        {
+            inputEl.removeCls(me.emptyCls);
+        }
+
+
+        if(tree == false) return false;
+        
+        var node = tree.getRootNode();
+        if(node == null) return false;
+        
+        me.recursiveRecords = [];
+        me.recursivePush(node, false);
+        
+        me.records = [];
+        Ext.each(me.recursiveRecords, function(record)
+        {
+            var id = record.get(me.valueField),
+                index = values.indexOf(''+id);
+        
+            if(me.multiselect == true) record.set('checked', false);
+            
+            if(index != -1)
+            {
+                valueFin.push(record.get(me.displayField));
+                if(me.multiselect == true) record.set('checked', true);
+                me.addRecord(record);
+            }
+        });
+
+
+        me.value = valueInit;
+        me.setRawValue(valueFin.join(', '));
+        
+        me.checkChange();
+        me.applyEmptyText();
+        return me;
+    },
+    getValue: function() 
+    {
+        return this.value;
+    },
+    getSubmitValue: function()
+    {
+        return this.value;
+    },
+    checkParentNodes: function(node)
+    {
+        if(node == null) return;
+        
+        var me = this,
+            checkedAll = true;
+
+
+        node.eachChild(function(nodesingle)
+        {
+            var id = nodesingle.getId(),
+                index = me.ids.indexOf(''+id);
+                
+            if(index == -1) checkedAll = false;
+        });
+        
+        if(checkedAll == true)
+        {
+            me.addIds(node);
+            me.checkParentNodes(node.parentNode);
+        }
+        else
+        {
+            me.removeIds(node);
+            me.checkParentNodes(node.parentNode);
+        }
+    },
+    initComponent: function() 
+    {
+        var me = this;
+        
+        me.tree = Ext.create('Ext.tree.Panel',
+        {
+            alias: 'widget.assetstree',
+            hidden: true,
+            minHeight: 300,
+            rootVisible: (typeof me.rootVisible != 'undefined') ? me.rootVisible : true,
+            floating: true,
+            useArrows: true,
+            width: me.treeWidth,
+            autoScroll: true,
+            height: me.treeHeight,
+            store: me.store,
+            listeners:
+            {
+                load: function(store, records)
+                {
+                    if(me.afterLoadSetValue != false)
+                    {
+                        me.setValue(me.afterLoadSetValue);
+                    }
+                },
+                itemclick:  function(view, record, item, index, e, eOpts)
+                {
+                    me.itemTreeClick(view, record, item, index, e, eOpts, me)
+                }
+            }
+        });
+        
+        if(me.tree.getRootNode().get('checked') != null) me.multiselect = true;
+        
+        this.createPicker = function()
+        {
+            var me = this;
+            return me.tree;
+        };
+        
+        this.callParent(arguments);
+    },
+    addIds: function(record)
+    {
+        var me = this;
+        
+        if(me.ids.indexOf(''+record.getId()) == -1) me.ids.push(''+record.get(me.valueField));
+    },
+    removeIds: function(record)
+    {
+        var me = this,
+            index = me.ids.indexOf(''+record.getId());
+            
+        if(index != -1)
+        {
+            me.ids.splice(index, 1);
+        }
+    },
+    addRecord: function(record)
+    {
+        var me = this;
+
+
+        for(var i=0,j=me.records.length;i<j;i++)
+        {
+            var item = me.records[i];
+            if(item)
+            {
+                if(item.getId() == record.getId()) return;
+            }
+        }
+        me.records.push(record);
+    },
+    removeRecord: function(record)
+    {
+        var me = this;
+
+
+        for(var i=0,j=me.records.length;i<j;i++)
+        {
+            var item = me.records[i];
+            if(item && item.getId() == record.getId()) delete(me.records[i]);
+        }
+    },
+    itemTreeClick: function(view, record, item, index, e, eOpts, treeCombo)
+    {
+        var me = treeCombo,
+            checked = !record.get('checked');//it is still not checked if will be checked in this event
+        
+        if(me.multiselect == true) record.set('checked', checked);//check record
+        
+        var node = me.tree.getRootNode().findChild(me.valueField, record.get(me.valueField), true);
+        if(node == null) 
+        {
+            if(me.tree.getRootNode().get(me.valueField) == record.get(me.valueField)) node = me.tree.getRootNode();
+            else return false;
+        }
+        
+        if(me.multiselect == false) me.ids = [];
+        
+        //if it can't select folders and it is a folder check existing values and return false
+        if(me.canSelectFolders == false && record.get('leaf') == false)
+        {
+            me.setRecordsValue(view, record, item, index, e, eOpts, treeCombo);
+            return false;
+        }
+        
+        //if record is leaf
+        if(record.get('leaf') == true) 
+        {
+            if(checked == true)
+            {
+                me.addIds(record);
+            }
+            else
+            {
+                me.removeIds(record);
+            }
+        }
+        else //it's a directory
+        {           
+            me.recursiveRecords = [];
+            if(checked == true)
+            {
+                if(me.multiselect == false)
+                {
+                    if(me.canSelectFolders == true) me.addIds(record); 
+                }
+                else
+                {
+                    if(me.canSelectFolders == true)
+                    {
+                        me.recursivePush(node, true);
+                    }
+                }
+            }
+            else
+            {
+                if(me.multiselect == false)
+                {
+                    if(me.canSelectFolders == true) me.recursiveUnPush(node);
+                    else me.removeIds(record);
+                }
+                else me.recursiveUnPush(node);
+            }
+        }
+        
+        //this will check every parent node that has his all children selected
+        if(me.canSelectFolders == true && me.multiselect == true) me.checkParentNodes(node.parentNode);
+        
+        me.setRecordsValue(view, record, item, index, e, eOpts, treeCombo);
+    },
+    fixIds: function()
+    {
+        var me = this;
+        
+        for(var i=0,j=me.ids.length;i<j;i++)
+        {
+            if(me.ids[i] == 'NaN') me.ids.splice(i, 1);
+        }
+    },
+    setRecordsValue: function(view, record, item, index, e, eOpts, treeCombo)
+    {
+        var me = treeCombo;
+        
+        me.fixIds();
+        
+        me.setValue(me.ids.join(','));
+
+
+        me.fireEvent('itemclick', me, record, item, index, e, eOpts, me.records, me.ids);
+
+
+        if(me.multiselect == false) me.onTriggerClick();
+    }   
+});
 /**
  * A link that pops up a version dialog box
  */
@@ -459,38 +849,211 @@ Ext.define('Rally.technicalservices.board.RoadmapBoard',{
         return new_y;
     }
 });
+/**
+ **/
+    Ext.define('Rally.technicalservices.picker.TagTreePicker', {
+        extend: 'Ext.ux.TreeCombo',
+        alias: 'widget.tstagtreepicker',
+
+        componentCls: 'rui-triggerfield rui-project-picker',
+
+        placeholderCls: 'rui-multi-object-placeholder',
+
+        editable: false,
+
+        /**
+         * @cfg {String}
+         * Text shown during initial load
+         */
+        loadingText: 'Loading...',
+        /**
+         * @cfg {String}
+         * Separator to define folder breaks
+         */
+        separator: ':',
+        /**
+         * @cfg {String} displayField
+         * The field inside the model that will be used as the node's text.
+         * Defaults to the default value of {@link Ext.tree.Panel}'s `displayField` configuration.
+         */
+        displayField: 'text',
+        
+        selectChildren: true,
+        
+        canSelectFolders: true,
+
+        multiselect: true,
+
+            
+        initComponent: function () {
+            var me = this;
+            
+            this.store = Ext.create('Ext.data.TreeStore', {
+                root: {}
+            });
+            
+            this._getTagRootNode().then({
+                scope: this,
+                success: function(root) {
+                    this.store.setRootNode(root);
+                },
+                failure: function(message) {
+                    Ext.msg.alert(message);
+                }
+            });
+            
+            me.callParent(arguments);
+        },
+
+        _getTagRootNode: function () {
+            var deferred = Ext.create('Deft.Deferred');
+            var me = this;
+            
+            Ext.create('Rally.data.wsapi.Store',{
+                model: 'tag',
+                autoLoad: true,
+                sorters: [{property:'Name',direction:'ASC'}],
+                filters: [{property:'Archived', value: 'false'}]
+            }).load({
+                callback : function(records, operation, successful) {
+                    if (successful){
+                        var root = this._createRootNode(records);
+                        deferred.resolve(root);
+                    } else {
+                        me.logger.log("Failed: ", operation);
+                        deferred.reject('Problem getting stories: ' + operation.error.errors.join('. '));
+                    }
+                },
+                scope: this
+            });
+            
+            return deferred.promise;
+        },
+        
+        // assume that tag objects are provided in order of Name
+        _createRootNode: function(tags) {
+            var hash = {};
+            
+            Ext.Array.each( tags, function(tag){
+                var name = tag.get('Name');
+                var name_array = name.split(this.separator);
+                
+                hash = this._setHashValue(hash,name,name_array);
+            },this);
+                        
+            var root = {
+                text: 'Tags',
+                expanded: 'true',
+                children: []
+            };
+                
+            Ext.Object.each(hash, function(key,value){
+                root.children.push(value);
+            });
+
+            return root;
+        },
+        
+        _counterValue: 1,
+        
+        _getCounterValue: function() {
+            this._counterValue = this._counterValue + 1;
+            return this._counterValue;
+        },
+        
+        _setHashValue: function(hash,full_name,name_array,parent) {
+            
+            if ( name_array.length > 0 ) {
+                var name = name_array[0];
+                var item_hash = {
+                    id: full_name,
+                    text: name,
+                    children:[],
+                    leaf: true,
+                    checked: false
+                };
+                
+                if( parent ) {
+                    parent.children.push(item_hash);
+                }
+                
+                if ( !parent && !hash[name] ) {
+                    hash[name] = item_hash;
+                }
+                
+                if (name_array.length > 1) {
+                    item_hash.leaf = false;
+                    item_hash.id = name;
+                    name_array.shift();
+                    this._setHashValue(hash,full_name,name_array,hash[name]);
+                }
+            }
+            
+            return hash;
+        }
+    });
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
+    
+    scheduleableModel: 'PortfolioItem/Feature',
+    dateField: 'PlannedEndDate',
+    
     items: [
-        {xtype:'container',itemId:'message_box',tpl:'Hello, <tpl>{_refObjectName}</tpl>'},
+        {xtype:'container',itemId:'selector_box', margin: 5},
         {xtype:'container',itemId:'display_box'},
         {xtype:'tsinfolink'}
     ],
     launch: function() {
-        this._getRecords("Release", ['Name','ReleaseDate']).then({
-            scope: this,
-            success: function(records){
-                this.logger.log(records);
-                Ext.create('Rally.technicalservices.board.RoadmapBoard',{
-                    width: this.getWidth(),
-                    height: this.getHeight(),
-                    target: this.down('#display_box'),
-                    records: records,
-                    date_field: 'ReleaseDate',
-                    listeners: {
+        this._addSelectors(this.down('#selector_box'));
+    },
+    
+    _addSelectors: function(container) {
+        container.add({ 
+            xtype: 'tstagtreepicker',
+            fieldLabel: 'Use Tags:',
+            listeners: {
+                scope: this,
+                blur: function(picker) {
+                    console.log("HA!",picker.getValue());
+                    var filters = null;
+                    if ( !Ext.isEmpty(picker.getValue()) ){
+                        var values = picker.getValue().split(',');
+                        
+                        var filter_configs = Ext.Array.map(values,function(name){
+                            return { property:'Tags.Name',operator:'contains',value:name };
+                        });
+                        filters = Rally.data.wsapi.Filter.or(filter_configs);
+                    }
+                    this._getRecords(this.scheduleableModel, ['Name',this.dateField], filters).then({
                         scope: this,
-                        clickMarker: this._showReleaseInfo
-                    },
-                    margin: 15
-                },this);
-            },
-            failure: function(error_message){
-                alert(error_message);
+                        success: function(records){
+                            this.logger.log('records',records);
+                            this.down('#display_box').removeAll();
+                            
+                            Ext.create('Rally.technicalservices.board.RoadmapBoard',{
+                                width: this.getWidth(),
+                                height: this.getHeight(),
+                                target: this.down('#display_box'),
+                                records: records,
+                                date_field: this.dateField,
+                                listeners: {
+                                    scope: this,
+                                    clickMarker: this._showReleaseInfo
+                                },
+                                margin: 15
+                            },this);
+                        },
+                        failure: function(error_message){
+                            alert(error_message);
+                        }
+                    });
+                }
             }
         });
     },
+    
     _showReleaseInfo: function(marker,release) {
         this.logger.log("clicked with ", marker, release);
         
@@ -511,19 +1074,28 @@ Ext.define('CustomApp', {
             columnCfgs: [{dataIndex:'FormattedID',text:'id'},{dataIndex:'Name',text:'Name'}]
          });
     },
-    _getRecords: function(model_name, model_fields){
+    
+    _getRecords: function(model_name, model_fields, filters){
         var deferred = Ext.create('Deft.Deferred');
         
-//        var context = this.getContext();
-//        if ( model_name == "Release" ) {
-//            context = {
-//                projectScopeDown: false
-//            }
-//        }
+        if ( !filters ) {
+            filters = [{property:'ObjectID',operator:'>',value:0}];
+        }
+        var context = {
+            projectScopeDown: this.getContext().getProjectScopeDown()
+        };
+                
+        if ( model_name == "Release" ) {
+            context = {
+                projectScopeDown: false
+            }
+        }
         Ext.create('Rally.data.wsapi.Store', {
             model: model_name,
             fetch: model_fields,
+            filters: filters,
             autoLoad: true,
+            context: context,
             sorters: [{property: 'Name'}],
             listeners: {
                 load: function(store, records, successful) {
