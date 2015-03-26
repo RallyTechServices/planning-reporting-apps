@@ -97,7 +97,9 @@
             };
                 
             Ext.Object.each(hash, function(key,value){
-                root.children.push(value);
+                if ( value.rootItem ) {
+                    root.children.push(value);
+                }
             });
 
             return root;
@@ -111,7 +113,6 @@
         },
         
         _setHashValue: function(hash,full_name,name_array,parent) {
-            
             if ( name_array.length > 0 ) {
                 var name = name_array[0];
                 var item_hash = {
@@ -119,14 +120,19 @@
                     text: name,
                     children:[],
                     leaf: true,
-                    checked: false
+                    checked: false,
+                    rootItem: false
                 };
                 
                 if( parent ) {
                     parent.children.push(item_hash);
                 }
                 
-                if ( !parent && !hash[name] ) {
+                if ( !parent ) {
+                    item_hash.rootItem = true;
+                }
+                
+                if ( !hash[name] ) {
                     hash[name] = item_hash;
                 }
                 
