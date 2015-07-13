@@ -42,9 +42,14 @@ Ext.define('CustomApp', {
         var start = this._getMonthFor(new Date());
         var end = Rally.util.DateTime.add(start,"month",6);
         
-        this._loadMilestonesBetweenDates(start, end, context).then({
+        Deft.Promise.all([
+            this._loadMilestonesBetweenDates(start, end, context)
+        ], this).then({
             scope: this,
-            success: function(milestones){
+            success: function(results){
+                var milestones = results[0];
+                this.logger.log('found milestones:', milestones);
+                
                 this._showTimePipe(start,end,milestones,"TargetDate");
             },
             failure: function(msg) { this.down('#display_box').add({xtype:'container', html:msg}); }
@@ -123,14 +128,23 @@ Ext.define('CustomApp', {
 
         var project_oid = context.project.replace(/.*\//,"");
         
+        var target_date_filter = Rally.data.wsapi.Filter.and([
+            { property: 'TargetDate', operator: '>', value: start_date },
+            { property: 'TargetDate', operator: '<', value: end_date }
+        ]);
+        
+        var target_project_filter = Rally.data.wsapi.Filter.or([
+            { property: 'Projects.ObjectID', value: project_oid },
+            { property: 'TargetProject', value: "" }
+        ]);
+        
+        var filters = target_date_filter.and(target_project_filter);
+        
+        
         var store = Ext.create('Rally.data.wsapi.Store', {
             model: 'Milestone',
             context: context,
-            filters: [
-                { property: 'TargetDate', operator: '>', value: start_date },
-                { property: 'TargetDate', operator: '<', value: end_date },
-                { property: 'Projects.ObjectID', value: project_oid }
-            ],
+            filters: filters,
             fetch: ['DisplayColor','FormattedID','Name','TargetDate','TargetProject'],
             sorters: { property: 'TargetDate' },
             autoLoad: true,
