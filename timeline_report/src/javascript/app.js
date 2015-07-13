@@ -26,6 +26,9 @@ Ext.define('CustomApp', {
             xtype: 'rallyprojectpicker',
             showMostRecentlyUsedProjects: false,
             margin: 5,
+            stateful: true,
+            stateId: 'rally.technicalservices.timeline.project',
+            stateEvents: ['change'],
             listeners: {
                 scope: this,
                 change: function(selector) {
@@ -43,19 +46,83 @@ Ext.define('CustomApp', {
         var end = Rally.util.DateTime.add(start,"month",6);
         
         Deft.Promise.all([
-            this._loadMilestonesBetweenDates(start, end, context)
+            this._loadMilestonesBetweenDates(start, end, context),
+            this._loadPIsBetweenDates(start, end, context)
         ], this).then({
             scope: this,
             success: function(results){
                 var milestones = results[0];
+                var pis = results[1];
                 this.logger.log('found milestones:', milestones);
+                this.logger.log('found portfolio items:', pis);
                 
-                this._showTimePipe(start,end,milestones,"TargetDate");
+                //this._showTimePipe(start,end,milestones,"TargetDate");
+                var milestones_to_show = this._getMilestonesForPIs(pis,milestones).then({
+                    scope: this,
+                    success: function(milestones) {
+                        this.logger.log('Milestones:',milestones);
+                        
+                        var records = Ext.Array.push(pis,milestones);
+                        this._showTimePipe(start,end,pis);
+                    }
+                });
+                
+                
             },
-            failure: function(msg) { this.down('#display_box').add({xtype:'container', html:msg}); }
+            failure: function(msg) { this.down('#display_box').add({xtype:'container', html:msg, padding: 10}); }
         });
     },
-    _showTimePipe: function(start_date,end_date,records,date_field_name){
+    
+    _getMilestonesForPIs: function(pis,milestones) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        var milestones_by_oid = {};
+        Ext.Array.each(milestones, function(milestone){
+            milestones_by_oid[milestone.get('ObjectID')] = milestone;
+        });
+        
+        var promises = [];
+        
+        var me = this;
+        Ext.Array.each(pis, function(pi){
+            if (pi.get('Milestones') && pi.get('Milestones').Count > 0 ) {
+                promises.push(function() { 
+                    return me._getMilestonesForPI(pi);
+                });
+            }
+        });
+        
+        if (promises.length == 0 ) {
+            deferred.resolve([]);
+            return deferred.promise;
+        } else {
+            Deft.Chain.sequence(promises).then({
+                scope: this,
+                success: function(results) {
+                    var results = Ext.Array.flatten(results);
+                    var milestones_by_oid = {};
+                    Ext.Array.each(results, function(result){
+                        milestones_by_oid[result.get('ObjectID')] = result;
+                    });
+                    deferred.resolve(Ext.Object.getValues(milestones_by_oid));
+                }
+            });
+        }
+        return deferred.promise;
+    },
+    
+    _getMilestonesForPI: function(pi) {
+        var deferred = Ext.create('Deft.Deferred');
+        pi.getCollection('Milestones').load({
+            fetch: ['DisplayColor','FormattedID','Name','TargetDate','TargetProject'],
+            callback: function(records, operation, success) {
+                deferred.resolve(records);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    _showTimePipe: function(start_date,end_date,records){
         this.logger.log("_showTimePipe");
         var container = this.down('#display_box');
         
@@ -69,16 +136,14 @@ Ext.define('CustomApp', {
             start_date: start_date,
             end_date: end_date,
             records: records,
-            date_field: date_field_name,
             renderIn: this.down('#display_box'),
             width: this.getWidth(),
             height: this.getHeight() - 50,
-            top_on_color: true,
-            show_date: true,
+            show_date: true/*,
             listeners: {
                 scope: this,
                 clickMarker: this._showMilestoneInfo
-            }
+            }*/
         });
     },
     _showMilestoneInfo: function(marker,milestone) {
@@ -154,6 +219,51 @@ Ext.define('CustomApp', {
                         deferred.resolve(records);
                     } else {
                         deferred.reject('Failed to load data for milestones]');
+                    }
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    _loadPIsBetweenDates: function(start_date,end_date, context){
+        var deferred = Ext.create('Deft.Deferred');
+        this.logger.log("Fetching portfolio items between ", start_date, end_date);
+        if ( typeof start_date === 'object' ) { 
+            start_date = Rally.util.DateTime.toIsoString(start_date);
+        }
+        if ( typeof end_date === 'object' ) { 
+            end_date = Rally.util.DateTime.toIsoString(end_date);
+        }
+        this.logger.log("Fetching portfolio items between ", start_date, end_date);
+
+        var project_oid = context.project.replace(/.*\//,"");
+        
+        var target_date_filter = Rally.data.wsapi.Filter.and([
+            { property: 'PlannedEndDate', operator: '>', value: start_date },
+            { property: 'PlannedEndDate', operator: '<', value: end_date }
+        ]);
+        
+        var switch_filter = Rally.data.wsapi.Filter.and([
+            {property:'c_ShowOnTimeline', value: true }
+        ]);
+        
+        var filters = target_date_filter.and(switch_filter);
+        
+        
+        var store = Ext.create('Rally.data.wsapi.Store', {
+            model: 'PortfolioItem',
+            context: context,
+            filters: filters,
+            fetch: ['DisplayColor','FormattedID','Name','PlannedEndDate','Milestones'],
+            sorters: { property: 'PlannedEndDate' },
+            autoLoad: true,
+            listeners: {
+                load: function(store, records, successful) {
+                    if (successful && records.length > 0 ){
+                        deferred.resolve(records);
+                    } else {
+                        deferred.reject('Failed to load data for portfolio items');
                     }
                 }
             }

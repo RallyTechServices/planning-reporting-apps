@@ -7,11 +7,6 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
          */
         records: [],
         /*
-         * @cfg {String} date_field The field that holds the date used to determine placement
-         * 
-         */
-        date_field: 'TargetDate',
-        /*
          * @cfg {Date} start_date  The date from which to start displaying timeboxes
          */
         start_date: new Date(),
@@ -40,12 +35,6 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
          * 
          */
         renderIn: null,
-        /*
-         * @cfg {Boolean} top_on_color
-         * 
-         * If the record has a color for its DisplayColor, then put on top
-         */
-        top_on_color: false,
         /*
          * @cfg {Boolean} show_date
          * 
@@ -165,7 +154,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             var next_date = Rally.util.DateTime.add(check_date,granularity,1);
             var records_in_timebox = [];
             Ext.Array.each(records,function(record){
-                var record_date = record.get(this.date_field);
+                var record_date = this._getDateFromRecord(record);
                 
                 if ( record_date > check_date && record_date < Rally.util.DateTime.add(next_date,'minute',-30) ) {
                     records_in_timebox.push(record);
@@ -189,17 +178,32 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         });
         return Ext.Array.flatten(timeboxes);
     },
+    
+    _getDateFromRecord: function(record) {
+        var type = record.get('_type').replace(/\/.*$/,'');
+        
+        var date_fields_for_record = {
+            'portfolioitem': 'PlannedEndDate',
+            'milestone'    : 'TargetDate'
+        }
+        return record.get(date_fields_for_record[type]);
+    },
+    
+    _isAboveLine: function(record) {
+        return record.get('_type') == 'milestone';
+    },
+    
     _getRecordMarkers: function(month_date, parent_width, parent_height, parent_x, parent_y, records) {
         var markers = [];
         var font_size = 14;
 
         Ext.Array.each(records,function(record){
-            var percentage_of_month = this._getPercentageOfMonthBurned(month_date, record.get(this.date_field));
+            var percentage_of_month = this._getPercentageOfMonthBurned(month_date, this._getDateFromRecord(record));
             var x = parent_x + ( percentage_of_month * parent_width );
             var y = parent_y + parent_height;
             var potential_text_y = y+40;
 
-            var is_above = ( this.top_on_color && record.get('DisplayColor') );
+            var is_above = this._isAboveLine(record);
             if  (is_above) {
                 y = parent_y;
                 potential_text_y = y-45;
@@ -208,7 +212,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             var text = record.get('Name');
 
             if (this.show_date) {
-                text = Ext.util.Format.date(record.get(this.date_field),'m/d')  + ":\n" + text;
+                text = Ext.util.Format.date(this._getDateFromRecord(record),'m/d')  + ":\n" + text;
             }
             
             var x_text_start = this._getCenteredTextX(text,font_size,x);

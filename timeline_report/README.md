@@ -1,6 +1,14 @@
 #Timeline
 
+Show PIs 
+- with planned end date in the next six months.
+Show Milestones associated with those PIs
+
+Milestones are shown above the line, PIs below the line
+
 ## Development Notes
+
+
 
 ### First Load
 
