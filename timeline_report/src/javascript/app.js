@@ -3,20 +3,27 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
     items: [
-        {xtype:'container', itemId:'selector_box'},
+        {xtype:'container', itemId:'selector_box', layout: { type:'hbox' }},
         {xtype:'container', itemId:'display_box'},
         {xtype:'tsinfolink'}
     ],
+    
+    selected_target_program: null,
+    selected_context: null,
+    
     launch: function() {
         Rally.data.ModelFactory.registerTypes(['milestone'], Rally.data.WsapiModelFactory); 
         
+        this._addTargetProgramSelector();
+
         if ( this.isExternal() ) {
             this._addProjectSelector();
         } else {
-            this._update({
+            this.selected_context = {
                 workspace:this.getContext().getWorkspace()._ref,
                 project:this.getContext().getProject()._ref
-            });
+            };
+            this._update();
         }
     },
     _addProjectSelector: function() {
@@ -33,15 +40,47 @@ Ext.define('CustomApp', {
                 scope: this,
                 change: function(selector) {
                     var project = selector.getSelectedRecord();
-                    this._update({
+                    this.selected_context = {
                         workspace:project.get('Workspace')._ref,
                         project:project.get('_ref')
-                    });
+                    };
+                    this._update();
                 }
             }
         });
     },
-    _update: function(context) {
+    _addTargetProgramSelector: function() {
+        this.down('#selector_box').add({
+            fieldLabel: 'Target Program:',
+            labelWidth: 95,
+            xtype: 'rallyfieldvaluecombobox',
+            model: 'PortfolioItem',
+            field: 'c_TargetProgram',
+            margin: 5,
+            listeners: {
+                scope: this,
+                change: function(selector) {
+                    this.selected_target_program = selector.getValue();
+
+                    this._update();
+                }
+            }
+        });
+    },
+    
+    _update: function() {
+        var target_program = this.selected_target_program;
+        var context = this.selected_context;
+        if ( Ext.isEmpty(context) ) {
+            this.logger.log("Missing project", context);
+            return;
+        }
+        
+        if ( this.timepipe ) { 
+            this.timepipe.destroy();
+            this.down('#display_box').removeAll();
+        }
+
         var start = this._getMonthFor(new Date());
         var end = Rally.util.DateTime.add(start,"month",6);
         
@@ -61,9 +100,11 @@ Ext.define('CustomApp', {
                     scope: this,
                     success: function(milestones) {
                         this.logger.log('Milestones:',milestones);
+                        this.logger.log('PIs:',pis);
                         
-                        var records = Ext.Array.push(pis,milestones);
-                        this._showTimePipe(start,end,pis);
+                        var records = Ext.Array.merge(pis,milestones);
+                        
+                        this._showTimePipe(start,end,records);
                     }
                 });
                 
@@ -123,13 +164,11 @@ Ext.define('CustomApp', {
     },
     
     _showTimePipe: function(start_date,end_date,records){
-        this.logger.log("_showTimePipe");
+        this.logger.log("_showTimePipe", records);
         var container = this.down('#display_box');
         
         this.logger.log('container:', container.getHeight(),container.getWidth());
         this.logger.log('page     :', this.getHeight(),this.getWidth());
-        
-        if ( this.timepipe ) { this.timepipe.destroy(); }
         
         this.timepipe = Ext.create('Rally.technicalservices.board.TimePipe',{
             margin: 25,
@@ -229,6 +268,8 @@ Ext.define('CustomApp', {
     _loadPIsBetweenDates: function(start_date,end_date, context){
         var deferred = Ext.create('Deft.Deferred');
         this.logger.log("Fetching portfolio items between ", start_date, end_date);
+        var me = this;
+        
         if ( typeof start_date === 'object' ) { 
             start_date = Rally.util.DateTime.toIsoString(start_date);
         }
@@ -244,12 +285,19 @@ Ext.define('CustomApp', {
             { property: 'PlannedEndDate', operator: '<', value: end_date }
         ]);
         
-        var switch_filter = Rally.data.wsapi.Filter.and([
+        var show_filter = Rally.data.wsapi.Filter.and([
             {property:'c_ShowOnTimeline', value: true }
         ]);
         
-        var filters = target_date_filter.and(switch_filter);
+        var program_filter = Rally.data.wsapi.Filter.and([
+            { property: 'c_TargetProgram', value: me.selected_target_program }
+        ]);
         
+        var filters = target_date_filter.and(show_filter);
+        
+        if ( !Ext.isEmpty(me.selected_target_program) ){
+            filters = filters.and(program_filter);
+        };
         
         var store = Ext.create('Rally.data.wsapi.Store', {
             model: 'PortfolioItem',

@@ -115,6 +115,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
     },
     
     _createTimeboxes: function(parent_width,parent_height, parent_x, parent_y, records) {
+        
         var timeboxes = [];
         var timebox_margin = 4;
         
@@ -156,10 +157,11 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             Ext.Array.each(records,function(record){
                 var record_date = this._getDateFromRecord(record);
                 
-                if ( record_date > check_date && record_date < Rally.util.DateTime.add(next_date,'minute',-30) ) {
+                if ( record_date >= check_date && record_date <= Rally.util.DateTime.add(next_date,'seconds',-5) ) {
                     records_in_timebox.push(record);
                 }
             },this);
+            
             record_markers.push( this._getRecordMarkers(check_date, width, height, x, y, records_in_timebox));
             
             check_date = next_date;

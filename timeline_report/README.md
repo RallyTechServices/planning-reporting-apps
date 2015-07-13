@@ -1,13 +1,22 @@
 #Timeline
 
 Show PIs 
-- with planned end date in the next six months.
+
+- with planned end date in the next six months
+- in the selected project
+- that have ShowOnTimeline ticked
+- that have a Target Program that is the same as chosen by the user
+
 Show Milestones associated with those PIs
 
 Milestones are shown above the line, PIs below the line
 
 ## Development Notes
 
+Caution: This app requires custom fields on Portfolio Items:
+
+ - Show On Timeline : Boolean
+ - Target Program : Drop Down
 
 
 ### First Load
