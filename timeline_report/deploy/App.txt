@@ -3,11 +3,11 @@
 <head>
     <title>Timeline</title>
     <!--  (c) 2014,2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sun Jul 12 2015 19:06:04 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Jul 16 2015 12:35:35 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Jul 12 2015 19:06:04 GMT-0700 (PDT)";
-        var CHECKSUM = 21498802087;
+        var APP_BUILD_DATE = "Thu Jul 16 2015 12:35:35 GMT-0700 (PDT)";
+        var CHECKSUM = 22706627197;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -181,6 +181,15 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
          * Include a short form of the date with the text
          */
         show_date: false,
+        
+        marker_font_size: 12,
+        
+        marker_ellipsis_length: 45, 
+        
+        outline_text: true, 
+        
+        month_font_size:  18,
+        
         scheduled_items: [] /* items that will show up in the quarter columns (e.g., releases) */
     },
     initComponent: function() {
@@ -337,12 +346,13 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
     
     _getRecordMarkers: function(month_date, parent_width, parent_height, parent_x, parent_y, records) {
         var markers = [];
-        var font_size = 14;
+        var font_size = this.marker_font_size;
 
         Ext.Array.each(records,function(record){
             var percentage_of_month = this._getPercentageOfMonthBurned(month_date, this._getDateFromRecord(record));
             var x = parent_x + ( percentage_of_month * parent_width );
             var y = parent_y + parent_height;
+            
             var potential_text_y = y+40;
 
             var is_above = this._isAboveLine(record);
@@ -358,6 +368,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             }
             
             var x_text_start = this._getCenteredTextX(text,font_size,x);
+            //var x_text_start = x;
             var y_text_start = this._getSafeY( x_text_start, potential_text_y, text, font_size, is_above);
 
             var text_sprite = Ext.create( 'Ext.draw.Sprite', {
@@ -382,9 +393,11 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             }
             
             // For seeing what the bbox is giving us
-            // markers.push(this._getBoxAroundText(text_sprite, x));
+            if ( this.outline_text ) {
+                markers.push(this._getBoxAroundText(text_sprite, x));
+            }
             
-            markers.push(this._getSafeLine(line_x, line_y_start, line_y_end, is_above, text_sprite));
+            //markers.push(this._getSafeLine(line_x, line_y_start, line_y_end, is_above, text_sprite));
             
             this.scheduled_items.push( text_sprite ); // used for looking for overlaps            
             markers.push(text_sprites);
@@ -483,10 +496,13 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         
         var line_counter = 0;
         Ext.Array.each( text_array, function(line_text) {
-            var subtext = Ext.util.Format.ellipsis(line_text, 15);
+            var subtext = Ext.util.Format.ellipsis(line_text, this.marker_ellipsis_length);
             
-            var sub_width = this._getTextWidth(subtext, text_sprite.fontSize);
+            var sub_box = this._getDimensions(subtext, text_sprite.fontSize);
+            var sub_width = sub_box.w;
+            
             var sub_x = this._getCenteredTextX(subtext,text_sprite.fontSize,x);
+            //var sub_x = x;
                         
             sprites.push(Ext.create( 'Ext.draw.Sprite', {
                 type: 'text',
@@ -506,16 +522,16 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             
         },this);
         
-        return sprites;
+       return sprites;
     },
     _getCenteredTextX: function(text,font_size,x){        
-        var width = this._getTextWidth( text, font_size );
+        var width = this._getDimensions( text, font_size ).w;
         var start = x - width/2;
         if ( start < this.margin ) { start = this.margin; }
         return start;
     },
     _getMonthNameMarker:function(month_date, parent_width, parent_height, parent_x, parent_y) {
-        var font_size = 24;
+        var font_size = this.month_font_size;
         var text = Ext.util.Format.date(month_date,'M');
         
         var x = ( parent_x + parent_width/2 ) - font_size;
@@ -530,13 +546,33 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             font: this._getFont(font_size)
         } );
     },
-    _getTextWidth: function( text, font_size ){
-        return ( text.length * font_size/2 ) + 1;
+    
+    _getDimensions: function( text, font_size){
+        console.log('_getDimensions', text, font_size);
+        
+        var div = document.createElement('span');
+        div.innerHTML = text;
+        
+        document.body.appendChild(div);
+        
+        var el = Ext.get(div);
+        el.setStyle('margin',0);
+        el.setStyle('paddding',0);
+        el.setStyle('font', this._getFont(font_size));
+        
+        var height = el.getHeight();
+        var width = el.getWidth();
+        
+        el.destroy();
+
+        return { w: width, h: height };
     },
+    
     _getFont: function(font_size) {
         var font_string = font_size + "px Arial";
         return font_string;
     },
+    
     _getQuarterForDate: function getQuarter(d) {
       d = d || new Date(); // If no date supplied, use today
       var q = [4,1,2,3];
@@ -591,6 +627,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         
         return !(a_left_of_b || a_right_of_b || a_above_b || a_below_b );
     },
+    
     _guessBBox: function( x, y, text, font_size ) {
         var width = 0;
         var line_counter = 0;
@@ -600,9 +637,12 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         
         Ext.Array.each( text_array, function(subtext) {
             line_counter++;
-            var subtext = Ext.util.Format.ellipsis(subtext, 15);
-            var sub_width = this._getTextWidth(subtext, font_size);
+            var subtext = Ext.util.Format.ellipsis(subtext, this.marker_ellipsis_length);
+            var sub_box = this._getDimensions(subtext, font_size);
+            
+            var sub_width = sub_box.w;
             var sub_x = this._getCenteredTextX(subtext,font_size,x);
+            //var sub_x = x;
             
             if ( sub_width > width ) { 
                 x0 = sub_x;
@@ -614,6 +654,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         var y0 = y - (font_size);
         return { x: x0, y: y0, width: width, height: height }
     },
+    
     _getPercentageOfMonthBurned: function(month_date,check_date){
         var day_ordinal = check_date.getDate();
         var last_day_of_month = Rally.util.DateTime.add(Rally.util.DateTime.add(month_date,'month',1),'day',-1);
