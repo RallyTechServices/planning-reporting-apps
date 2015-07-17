@@ -3,11 +3,11 @@
 <head>
     <title>Timeline</title>
     <!--  (c) 2014,2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jul 16 2015 12:35:35 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Jul 16 2015 17:21:20 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jul 16 2015 12:35:35 GMT-0700 (PDT)";
-        var CHECKSUM = 22706627197;
+        var APP_BUILD_DATE = "Thu Jul 16 2015 17:21:20 GMT-0700 (PDT)";
+        var CHECKSUM = 27945525848;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -298,7 +298,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
                     fill: '#B2E0FF'
                 })
             );
-            
+                        
             timeboxes.push( this._getMonthNameMarker(check_date,width,height,x,y));
             
             var next_date = Rally.util.DateTime.add(check_date,granularity,1);
@@ -311,7 +311,8 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
                 }
             },this);
             
-            record_markers.push( this._getRecordMarkers(check_date, width, height, x, y, records_in_timebox));
+            //record_markers.push( this._getRecordMarkers(check_date, width, height, x, y, records_in_timebox));
+            record_markers.push( this._getDateMarkers(check_date, width, height, x, y, records_in_timebox));
             
             check_date = next_date;
         }
@@ -343,6 +344,89 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
     _isAboveLine: function(record) {
         return record.get('_type') == 'milestone';
     },
+
+    /*
+     * returns a hash where key = date, value = array or records on that date
+     */
+    _getRecordsByDate: function(records) {
+        var records_by_date = {};
+        Ext.Array.each(records, function(record) {
+            var record_date = this._getDateFromRecord(record);
+            if ( Ext.isEmpty(records_by_date[record_date]) ) { records_by_date[record_date] = []; } 
+            records_by_date[record_date].push(record);
+        },this);
+        return records_by_date;
+    },
+    
+    /*
+     * clustered by date (if on same day)
+     * 
+     */
+    _getDateMarkers: function(month_date, parent_width, parent_height, parent_x, parent_y, records) {
+        var markers = [];
+        var font_size = this.marker_font_size;
+
+        var records_by_date = this._getRecordsByDate(records);
+        
+        console.log('records by date:', records_by_date);
+        
+        var text_boxes = [];
+        var markers = [];
+        
+        Ext.Object.each(records_by_date, function(key, record_array){
+            var record_date = new Date(key);
+            var is_above = this._isAboveLine(record_array[0]);
+
+            var percentage_of_month = this._getPercentageOfMonthBurned(month_date,record_date);
+            var x = parent_x + ( percentage_of_month * parent_width );
+            var y = parent_y + parent_height;
+            var potential_text_y = y+40;
+            if  (is_above) {
+                y = parent_y;
+                potential_text_y = y-45;
+            }
+            
+            var text = Ext.Array.map(record_array,function(record){ return record.get("Name"); }).join('\n');
+            if (this.show_date) {
+                text = Ext.util.Format.date(record_date,'m/d')  + ":\n" + text;
+            }
+            var x_text_start = this._getCenteredTextX(text,font_size,x);
+            var y_text_start = this._getSafeY( x_text_start, potential_text_y, text, font_size, is_above);
+
+            var text_sprite = Ext.create( 'Ext.draw.Sprite', {
+                type: 'text',
+                text: text,
+                x: x_text_start,
+                y: y_text_start,
+                x_center: x,
+                fill: '#000',
+                font: this._getFont(font_size),
+                fontSize: font_size
+            } );
+            
+            var text_sprites = this._getSpritesFromTextSprite(text_sprite, x); // used for displaying
+            
+            var line_x = x;
+            var line_y_start = y;
+            var line_y_end = y_text_start - font_size;
+            if  (is_above) {
+                line_y_start = text_sprites[text_sprites.length-1].y + 7;
+                line_y_end = y;
+            }
+            
+            // For seeing what the bbox is giving us
+            if ( this.outline_text ) {
+                markers.push(this._getBoxAroundText(text_sprite, x));
+            }
+            
+            markers.push(this._getSafeLine(line_x, line_y_start, line_y_end, is_above, text_sprite));
+            
+            this.scheduled_items.push( text_sprite ); // used for looking for overlaps            
+            markers.push(text_sprites);
+        },this);
+       
+        return markers;
+    },
     
     _getRecordMarkers: function(month_date, parent_width, parent_height, parent_x, parent_y, records) {
         var markers = [];
@@ -368,7 +452,6 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
             }
             
             var x_text_start = this._getCenteredTextX(text,font_size,x);
-            //var x_text_start = x;
             var y_text_start = this._getSafeY( x_text_start, potential_text_y, text, font_size, is_above);
 
             var text_sprite = Ext.create( 'Ext.draw.Sprite', {
@@ -382,7 +465,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
                 fontSize: font_size
             } );
             
-            var text_sprites = this._getSpritesFromTextSprite(text_sprite, x, record); // used for displaying
+            var text_sprites = this._getSpritesFromTextSprite(text_sprite, x); // used for displaying
             
             var line_x = x;
             var line_y_start = y;
@@ -405,6 +488,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         },this);
         return markers;
     },
+    
     _getBoxAroundText: function(item, center_x) {
         var bbox = this._guessBBox(center_x, item.y, item.text, item.fontSize);
         
@@ -413,7 +497,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         
         var y1 = y0 + bbox.height;
         var x1 = x0 + bbox.width;
-
+        
         var line = {
             type  : "path",
             path  : "M " + x0 + " " + y0 + " " + 
@@ -429,6 +513,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         return line;
         
     },
+    
     _getSafeLine: function(line_x, line_y_start, line_y_end, is_above, target_item) {
         var safe = true;
         var bbox = { x: line_x, y: line_y_start, width: 2, height: line_y_end - line_y_start };
@@ -489,7 +574,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
      * Text with \n will not let you center the second line, so
      * let's break into an array of more than one.
      */
-    _getSpritesFromTextSprite:function(text_sprite, x, record){
+    _getSpritesFromTextSprite:function(text_sprite, x){
         var me = this;
         var text_array = text_sprite.text.split('\n');
         var sprites = [];
@@ -511,12 +596,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
                 y: text_sprite.y + ( line_counter * ( text_sprite.fontSize + 2 ) ), 
                 fill: '#000',
                 font: text_sprite.font,
-                fontSize: text_sprite.fontSize,
-                listeners: {
-                    click: function(){
-                        me.fireEvent('clickMarker',this,record);
-                    }
-                }
+                fontSize: text_sprite.fontSize
             } ));
             line_counter++;
             
@@ -537,6 +617,8 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         var x = ( parent_x + parent_width/2 ) - font_size;
         var y = parent_y + parent_height/2;
         
+        console.log(text, parent_x, parent_y);
+        
         return Ext.create( 'Ext.draw.Sprite', {
             type: 'text',
             text: text,
@@ -547,9 +629,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         } );
     },
     
-    _getDimensions: function( text, font_size){
-        console.log('_getDimensions', text, font_size);
-        
+    _getDimensions: function( text, font_size){        
         var div = document.createElement('span');
         div.innerHTML = text;
         
@@ -593,26 +673,37 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
      */
     _getSafeY: function( potential_x, potential_y, text, font_size, is_above ){
         var safe = true;
-        var bbox = this._guessBBox(potential_x, potential_y, text, font_size);
-        
-        var y = potential_y;
+        // guess bbox starts from a center x, not the item's x, so shift the x
+        var dim = this._getDimensions(text, font_size);
+        var bbox = this._guessBBox(potential_x + (dim.w/2), potential_y, text, font_size);
+
         var x = potential_x;
+        var delta_y = 0;
         
         Ext.Array.each(this.scheduled_items,function(item){
-            var check_bbox = this._guessBBox(item.x, item.y, item.text, item.fontSize);
-            
+            var check_dim = this._getDimensions(item.text,font_size);
+            var check_bbox = this._guessBBox(item.x + (check_dim.w/2), item.y, item.text, item.fontSize);
+                        
             if ( this._BBOverlap(bbox, check_bbox) ){
+                var delta = 0;
+                if ( is_above ) {
+                    delta = -5;
+                    //delta = ( check_bbox.y - check_bbox.height ) - t - 5;
+                } else {
+                    delta = check_bbox.y - (potential_y - bbox.height) + 10;
+                    if ( delta <= 0 ) { delta = 15; }
+                }
+                if ( Math.abs(delta) > Math.abs(delta_y) ) {
+                    delta_y = delta;
+                }
                 safe = false;
             }
 
         },this);
         
-        var new_y = y;
+        var new_y = potential_y;
         if ( !safe ) {
-            var possible_y = y + bbox.height + 7;
-            if (is_above) {
-                possible_y = y - bbox.height - 7;
-            }
+            var possible_y = potential_y +  delta_y;
             new_y = this._getSafeY(x, possible_y, text, font_size, is_above);
         }
         return new_y;
