@@ -3,11 +3,11 @@
 <head>
     <title>Timeline</title>
     <!--  (c) 2014,2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jul 16 2015 17:21:20 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Jul 16 2015 17:38:40 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jul 16 2015 17:21:20 GMT-0700 (PDT)";
-        var CHECKSUM = 27945525848;
+        var APP_BUILD_DATE = "Thu Jul 16 2015 17:38:40 GMT-0700 (PDT)";
+        var CHECKSUM = 28182481821;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -186,7 +186,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         
         marker_ellipsis_length: 45, 
         
-        outline_text: true, 
+        outline_text: false, 
         
         month_font_size:  18,
         
@@ -532,21 +532,23 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         
         Ext.Array.each(this.scheduled_items,function(item){
             // needs to have line_x be the center of the item.  hmm.
+            // for under the timeline, the text box y is the upper limit
             var check_bbox = this._guessBBox(item.x_center, item.y, item.text, item.fontSize);
         
             if ( this._BBOverlap(bbox, check_bbox) ){
                 safe = false;
                 var text_right  = check_bbox.x + check_bbox.width;
-                var text_top    = check_bbox.y - ( 0.5 * check_bbox.height );
-                var text_bottom = check_bbox.y ;
+                var text_left   = check_bbox.x + 2;
+                var text_top    = check_bbox.y;
+                var text_bottom = check_bbox.y + check_bbox.height + 2;
                 
                 start_x = line_x;
                 start_y = line_y_start;
                 end_y = line_y_end;
 
-                var first_bend_y = (text_top > start_y) ? text_top : start_y - 5;
-                var first_bend_x = text_right;
-                var second_bend_y = (text_bottom > end_y) ? text_bottom : end_y - 2;
+                var first_bend_y = (text_top >= start_y) ? text_top : start_y;
+                var first_bend_x = (text_right > line_x ) ? text_right + 4: line_x;
+                var second_bend_y = (text_bottom < end_y) ? text_bottom : end_y;
                 var final_y = end_y;
                 
                 if ( is_above ) {

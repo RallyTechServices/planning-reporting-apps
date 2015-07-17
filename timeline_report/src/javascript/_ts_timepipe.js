@@ -46,7 +46,7 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         
         marker_ellipsis_length: 45, 
         
-        outline_text: true, 
+        outline_text: false, 
         
         month_font_size:  18,
         
@@ -392,21 +392,23 @@ Ext.define('Rally.technicalservices.board.TimePipe',{
         
         Ext.Array.each(this.scheduled_items,function(item){
             // needs to have line_x be the center of the item.  hmm.
+            // for under the timeline, the text box y is the upper limit
             var check_bbox = this._guessBBox(item.x_center, item.y, item.text, item.fontSize);
         
             if ( this._BBOverlap(bbox, check_bbox) ){
                 safe = false;
                 var text_right  = check_bbox.x + check_bbox.width;
-                var text_top    = check_bbox.y - ( 0.5 * check_bbox.height );
-                var text_bottom = check_bbox.y ;
+                var text_left   = check_bbox.x + 2;
+                var text_top    = check_bbox.y;
+                var text_bottom = check_bbox.y + check_bbox.height + 2;
                 
                 start_x = line_x;
                 start_y = line_y_start;
                 end_y = line_y_end;
 
-                var first_bend_y = (text_top > start_y) ? text_top : start_y - 5;
-                var first_bend_x = text_right;
-                var second_bend_y = (text_bottom > end_y) ? text_bottom : end_y - 2;
+                var first_bend_y = (text_top >= start_y) ? text_top : start_y;
+                var first_bend_x = (text_right > line_x ) ? text_right + 4: line_x;
+                var second_bend_y = (text_bottom < end_y) ? text_bottom : end_y;
                 var final_y = end_y;
                 
                 if ( is_above ) {
